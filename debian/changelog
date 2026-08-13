@@ -1,0 +1,9 @@
+go-e-sma-homewizard-controller (1.0.0-1) focal; urgency=medium
+
+  * Initial Debian package release
+  * Refactored bash script with function-based architecture
+  * Added configuration file support (/etc/go-e-sma-homewizard-controller/)
+  * Added systemd service integration
+  * Added comprehensive logging and debug mode
+
+ -- Dietmar Schnabel <dietmar@example.com>  Wed, 13 Aug 2026 12:00:00 +0000

@@ -1,0 +1,59 @@
+#!/bin/bash
+# Post-installation script for go-e-sma-homewizard-controller
+
+set -e
+
+case "$1" in
+    configure)
+        # Create configuration directory if it doesn't exist
+        if [ ! -d /etc/go-e-sma-homewizard-controller ]; then
+            mkdir -p /etc/go-e-sma-homewizard-controller
+            chmod 755 /etc/go-e-sma-homewizard-controller
+        fi
+        
+        # Copy example config if main config doesn't exist
+        if [ ! -f /etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf ]; then
+            cp /etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf.example \
+               /etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf
+            chmod 644 /etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf
+        fi
+        
+        # Create log directory
+        if [ ! -d /var/log/go-e-sma-homewizard-controller ]; then
+            mkdir -p /var/log/go-e-sma-homewizard-controller
+            chmod 755 /var/log/go-e-sma-homewizard-controller
+        fi
+        
+        # Reload systemd daemon
+        if command -v systemctl >/dev/null; then
+            systemctl daemon-reload
+            echo ""
+            echo "========================================="
+            echo "go-e-sma-homewizard-controller installed"
+            echo "========================================="
+            echo ""
+            echo "Configuration file: /etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf"
+            echo ""
+            echo "To start the service:"
+            echo "  sudo systemctl start go-e-sma-homewizard-controller"
+            echo ""
+            echo "To enable auto-start on boot:"
+            echo "  sudo systemctl enable go-e-sma-homewizard-controller"
+            echo ""
+            echo "To check status:"
+            echo "  sudo systemctl status go-e-sma-homewizard-controller"
+            echo ""
+            echo "To view logs:"
+            echo "  sudo journalctl -u go-e-sma-homewizard-controller -f"
+            echo ""
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

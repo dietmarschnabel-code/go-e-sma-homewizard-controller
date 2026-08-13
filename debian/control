@@ -1,0 +1,22 @@
+Source: go-e-sma-homewizard-controller
+Section: misc
+Priority: optional
+Maintainer: Dietmar Schnabel <dietmar@example.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.0
+Homepage: https://github.com/dietmarschnabel-code/go-e-sma-homewizard-controller
+
+Package: go-e-sma-homewizard-controller
+Architecture: all
+Depends: bash, curl, jq
+Description: go-e-charger load management controller with PV support
+ Linux bash script to provide data for a go-e-charger with support for load
+ management to avoid higher Austrian net charges for above 10KW house power.
+ Includes sample connection to SMA inverter via Bluetooth.
+ .
+ Features:
+  - Automatic charging current adjustment based on available house power
+  - PV surplus detection and integration
+  - Support for SMA inverters via Bluetooth
+  - Configurable power limits and safety margins
+  - Systemd service integration

@@ -1,0 +1,32 @@
+#!/usr/bin/make -f
+# Build file for go-e-sma-homewizard-controller Debian package
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# No build step needed for bash script
+
+override_dh_auto_test:
+	# Validate bash syntax
+	bash -n go-e-sma-homewizard-controller.sh
+
+override_dh_auto_install:
+	# Install script
+	mkdir -p debian/go-e-sma-homewizard-controller/usr/bin
+	install -m 0755 go-e-sma-homewizard-controller.sh debian/go-e-sma-homewizard-controller/usr/bin/go-e-sma-homewizard-controller
+	
+	# Install config template
+	mkdir -p debian/go-e-sma-homewizard-controller/etc/go-e-sma-homewizard-controller
+	install -m 0644 go-e-sma-homewizard-controller.conf debian/go-e-sma-homewizard-controller/etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf.example
+	
+	# Install systemd service file
+	mkdir -p debian/go-e-sma-homewizard-controller/lib/systemd/system
+	install -m 0644 debian/systemd/go-e-sma-homewizard-controller.service debian/go-e-sma-homewizard-controller/lib/systemd/system/
+	
+	# Install README and LICENSE
+	mkdir -p debian/go-e-sma-homewizard-controller/usr/share/doc/go-e-sma-homewizard-controller
+	install -m 0644 README.md debian/go-e-sma-homewizard-controller/usr/share/doc/go-e-sma-homewizard-controller/
+	install -m 0644 LICENSE debian/go-e-sma-homewizard-controller/usr/share/doc/go-e-sma-homewizard-controller/

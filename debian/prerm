@@ -1,0 +1,21 @@
+#!/bin/bash
+# Pre-removal script for go-e-sma-homewizard-controller
+
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Stop the service if it's running
+        if command -v systemctl >/dev/null; then
+            if systemctl is-active --quiet go-e-sma-homewizard-controller; then
+                echo "Stopping go-e-sma-homewizard-controller service..."
+                systemctl stop go-e-sma-homewizard-controller || true
+            fi
+            if systemctl is-enabled --quiet go-e-sma-homewizard-controller; then
+                systemctl disable go-e-sma-homewizard-controller || true
+            fi
+        fi
+        ;;
+esac
+
+exit 0

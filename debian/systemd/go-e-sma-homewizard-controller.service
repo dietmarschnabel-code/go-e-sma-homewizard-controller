@@ -1,0 +1,27 @@
+[Unit]
+Description=go-e-charger SMA HomeWizard Load Manager
+Documentation=https://github.com/dietmarschnabel-code/go-e-sma-homewizard-controller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/go-e-sma-homewizard-controller
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=go-e-sma
+
+# Security settings
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=true
+
+# Resource limits
+MemoryLimit=64M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
