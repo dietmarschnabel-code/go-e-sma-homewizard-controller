@@ -51,11 +51,11 @@ check_dependencies() {
         print_success "dpkg-buildpackage"
     fi
     
-    if ! command -v debhelper &> /dev/null; then
-        print_error "debhelper not found (install: sudo apt-get install debhelper)"
+    if ! command -v dh &> /dev/null; then
+        print_error "dh not found (install: sudo apt-get install debhelper)"
         missing_deps=1
     else
-        print_success "debhelper"
+        print_success "dh (debhelper)"
     fi
     
     if ! command -v bash &> /dev/null; then
