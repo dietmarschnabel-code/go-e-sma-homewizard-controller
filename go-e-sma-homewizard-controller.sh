@@ -332,7 +332,7 @@ send_pv_data() {
     local data="{\"pGrid\":${house_power},\"pPv\":${pv_power},\"pAkku\":0}"
     local url="http://${CHARGER_IP}/api/set"
     
-    if curl -s --max-time 10 --retry 2 --output /dev/null --data-urlencode "ids=$data" "$url"; then
+    if curl -s --max-time 10 --retry 2 --output /dev/null --url-query "ids=$data" "$url"; then
         debug "Sent PV data to charger"
         return 0
     else
