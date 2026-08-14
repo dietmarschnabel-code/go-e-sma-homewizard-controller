@@ -79,6 +79,6 @@ clean:
 	@rm -rf debian/go-e-sma-homewizard-controller
 	@rm -f debian/debhelper-build-stamp
 	@rm -f debian/files
-	@rm -f debian/.debhelper
+	@rm -rf debian/.debhelper
 	@rm -rf .debhelper-build-stamp
 	@echo "✓ Clean complete"
