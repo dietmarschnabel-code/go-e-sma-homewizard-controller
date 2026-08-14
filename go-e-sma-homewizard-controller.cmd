@@ -26,11 +26,22 @@ while ( true ) do
       OUTPUT=$(grep "Total Power" "$HOME/sma-bluetooth/tmp/sma-update.log" | cut -d' ' -f15)
 
       # -n checks if the string has a length greater than zero (replaces [ -s ... ])
- 
       if [ -n "$OUTPUT" ]; then
         CURRENT_PV_POWER="$OUTPUT"
       else
-        # we are running in sync with pv update - try fix with delay. Old CURRENT_PV_POWER value to be used
+        # If the SMA log is rewritten while we read it, keep the last valid value
+        # and pause briefly before the next sync cycle to avoid immediate retries.
+        if [ "$CURRENT_PV_POWER" -gt "0" ]; then
+          sleep 2
+        else
+          sleep 2
+        fi
+      fi
+    else
+      # Log file may be temporarily missing while the SMA process updates it.
+      if [ "$CURRENT_PV_POWER" -gt "0" ]; then
+        sleep 2
+      else
         sleep 2
       fi
     fi

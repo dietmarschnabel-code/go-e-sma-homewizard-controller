@@ -206,22 +206,40 @@ jq_safe() {
 
 read_pv_power() {
     local power=0
-    
+    local output=""
+
+    # If the log file is temporarily unavailable while being rewritten, keep the
+    # last good value and pause briefly before the next sync cycle.
     if [[ ! -f "$SMA_LOG_FILE" ]]; then
         debug "SMA log file not found: $SMA_LOG_FILE"
+        if [[ $pv_power_w -gt 0 ]]; then
+            debug "Using last valid PV power: ${pv_power_w}W"
+            sleep 2
+            echo "$pv_power_w"
+            return 0
+        fi
+        sleep 2
+        echo "$power"
         return 0
     fi
-    
+
     # Extract "Total Power" value from SMA log (column 15)
-    local output
     output=$(grep "Total Power" "$SMA_LOG_FILE" 2>/dev/null | tail -1 | cut -d' ' -f15)
-    
+
     if [[ -n "$output" && "$output" =~ ^[0-9]+$ ]]; then
         power="$output"
-    else
-        debug "Failed to parse PV power from SMA log"
+        echo "$power"
+        return 0
     fi
-    
+
+    debug "Failed to parse PV power from SMA log, using last valid value"
+    if [[ $pv_power_w -gt 0 ]]; then
+        sleep 2
+        echo "$pv_power_w"
+        return 0
+    fi
+
+    sleep 2
     echo "$power"
 }
 
