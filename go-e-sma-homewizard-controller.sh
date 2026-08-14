@@ -354,12 +354,12 @@ run_load_management() {
     
     local charger_mode
     charger_mode=$(get_charger_mode "$charger_response")
+
+    local charger_amp
+    charger_amp=$(get_charger_amperage "$charger_response")
     
     # Only run load management if NOT in PV mode or power is high
     if [[ $charger_mode -ne $PV_MODE ]] || [[ $charger_power -gt 4400 ]]; then
-        local charger_amp
-        charger_amp=$(get_charger_amperage "$charger_response")
-        
         local house_power
         house_power=$(read_house_power) || return 1
         
@@ -372,8 +372,10 @@ run_load_management() {
             set_charger_amperage "$new_amp"
         fi
     else
-        # PV mode: set to maximum
-        set_charger_amperage "$MAX_AMPERAGE"
+        # PV mode: set to maximum if value has changed
+        if [[ $charger_amp -ne $MAX_AMPERAGE ]]; then
+          set_charger_amperage "$MAX_AMPERAGE"
+        fi
     fi
 }
 
