@@ -1,4 +1,4 @@
-.PHONY: help install uninstall build deb clean check-deps
+.PHONY: help install uninstall build deb rpm clean check-deps
 
 PACKAGE_NAME=go-e-sma-homewizard-controller
 SCRIPT_SOURCE=go-e-sma-homewizard-controller.sh
@@ -14,6 +14,7 @@ help:
 	@echo "  install             Install script directly to system"
 	@echo "  uninstall           Remove script from system"
 	@echo "  deb                 Build Debian package"
+	@echo "  rpm                 Build RPM package"
 	@echo "  clean               Clean build artifacts"
 	@echo "  test-syntax         Test bash script syntax"
 	@echo "  help                Show this help message"
@@ -21,6 +22,7 @@ help:
 	@echo "Installation methods:"
 	@echo "  1. Direct install (development): make install"
 	@echo "  2. Debian package (recommended): make deb"
+	@echo "  3. RPM package: make rpm"
 	@echo ""
 
 check-deps:
@@ -73,6 +75,11 @@ deb: check-deps test-syntax
 	@echo ""
 	@echo "To install the package:"
 	@echo "  sudo dpkg -i ../$(PACKAGE_NAME)_*.deb"
+
+rpm: check-deps test-syntax
+	@echo "Building RPM package..."
+	@bash build-rpm-package.sh
+	@echo "✓ RPM package built successfully"
 
 clean:
 	@echo "Cleaning build artifacts..."
