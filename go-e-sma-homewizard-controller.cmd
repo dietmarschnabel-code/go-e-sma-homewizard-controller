@@ -5,6 +5,7 @@ CHARGER_IP="#.#.#.#"            # IP of go-eChargers
 P1_IP="#.#.#.#"                 # IP of HomeWizard P1 Meters
 MAX_POWER_LIMIT_WATTS=10000     # Power limit (only for cost minimizing)
 SAFETY_MARGIN_WATTS=300         # Buffer value to avoid issues for short term changes
+MAX_AMPERAGE=16                 # Maximum charging amperage (16A)
     
 VOLTAGE=230                     # Standard Voltage value
 PHASES=3                        # we use by default 3-phase Laden
@@ -49,14 +50,14 @@ while ( true ) do
       # Wallbox-Leistung aus nrg-Array extrahieren und direkt via jq auf Ganzzahl runden
       CURRENT_EV_POWER=$(echo "$GOE_DATA" | jq -r '.nrg[11] | round // 0')
 
-      # Prüfen, ob der Lademodus (lmo) auf PV-Überschuss (Wert 4) eingestellt ist
+      # Read charging mode for verification of PV-Charging
       LADEMODUS=$(echo "$GOE_DATA" | jq -r '.lmo // 1')
+
+      # Read actually configured ampere value for comparison with calculated new value. If not available, use 6A as default.
+      GOE_AMP=$(echo "$GOE_DATA" | jq -r '.amp // 6')
 
       if [ "$LADEMODUS" -ne 4 ] || [ "$CURRENT_EV_POWER" -gt 4400 ]
       then
-        GOE_AMP=$(echo "$GOE_DATA" | jq -r '.amp // 6')
-
-
         # 2. Actual total active power from HomeWizard P1 Meter
         P1_DATA=$(curl -s --max-time 3 "http://${P1_IP}/api/v1/data")
         if [ -n "$P1_DATA" ] 
@@ -85,7 +86,7 @@ while ( true ) do
           fi
 
           # Stay with values within limits upper limit 16 A, Lower limit with 6A fixed)
-          if [ "$NEW_AMP" -gt 16 ]; then NEW_AMP=16; fi
+          if [ "$NEW_AMP" -gt $MAX_AMPERAGE ]; then NEW_AMP=$MAX_AMPERAGE; fi
           if [ "$NEW_AMP" -lt 6 ]; then  NEW_AMP=6;  fi  # KEIN Abschalten, minimales Laden läuft weiter
 
           # 4. go-eCharger set limit
@@ -95,8 +96,10 @@ while ( true ) do
           fi
         fi
       else
-        # set limit to 16 Ampere for PV charging
-        curl -s "http://${CHARGER_IP}/api/set?amp=16" > /dev/null
+         # set limit to 16 Ampere for PV charging if not already set. This is required for PV charging with go-eCharger.
+         if [ "$MAX_AMPERAGE" -ne "$GOE_AMP" ]; then
+          curl -s "http://${CHARGER_IP}/api/set?amp=$MAX_AMPERAGE" > /dev/null
+        fi
       fi
     fi
   fi
