@@ -377,12 +377,12 @@ run_load_management() {
     
     local charger_mode
     charger_mode=$(get_charger_mode "$charger_response")
+
+    local charger_amp
+    charger_amp=$(get_charger_amperage "$charger_response") 
     
     # Only run load management if NOT in PV mode or power is high
     if [[ $charger_mode -ne $PV_MODE ]] || [[ $charger_power -gt 4400 ]]; then
-        local charger_amp
-        charger_amp=$(get_charger_amperage "$charger_response")
-        
         local house_power
         house_power=$(read_house_power) || return 1
         
@@ -395,8 +395,10 @@ run_load_management() {
             set_charger_amperage "$new_amp"
         fi
     else
-        # PV mode: set to maximum
-        set_charger_amperage "$MAX_AMPERAGE"
+        # PV mode: set to maximum only if setting has changed
+        if [[ $MAX_AMPERAGE -ne $charger_amp ]]; then
+            set_charger_amperage "$MAX_AMPERAGE"
+        fi
     fi
 }
 
@@ -448,13 +450,13 @@ main() {
     
     while true; do
         # Update PV power every PV_UPDATE_INTERVAL_S
-        if [[ $((loop_counter % $((PV_UPDATE_INTERVAL_S / LOOP_INTERVAL_S)))) -eq 0 ]]; then
+        if [[ $((loop_counter % $((PV_UPDATE_INTERVAL_S)))) -eq 0 ]]; then
             pv_power_w=$(read_pv_power)
             debug "Updated PV power: ${pv_power_w}W"
         fi
         
         # Run load management every METER_CHECK_INTERVAL_S
-        if [[ $((loop_counter % $((METER_CHECK_INTERVAL_S / LOOP_INTERVAL_S)))) -eq 0 ]]; then
+        if [[ $((loop_counter % $((METER_CHECK_INTERVAL_S)))) -eq 0 ]]; then
             run_load_management || debug "Load management cycle failed"
         fi
         
