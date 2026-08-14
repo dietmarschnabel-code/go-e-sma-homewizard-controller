@@ -34,6 +34,7 @@ CHARGER_IP="#.#.#.#"              # IP of go-eCharger
 P1_IP="#.#.#.#"                   # IP of HomeWizard P1 Meter
 MAX_POWER_LIMIT_WATTS=10000        # Power limit in watts
 SAFETY_MARGIN_WATTS=300            # Buffer to avoid short-term issues
+SMA_LOG_FILE="/var/lib/sma-bluetooth/tmp/sma-update.log"  # SMA inverter log path
 
 # ============================================================================
 # CONFIGURATION FILE LOADING
@@ -90,6 +91,10 @@ load_config_file() {
                 SAFETY_MARGIN_WATTS="$value"
                 debug "Config: SAFETY_MARGIN_WATTS=$SAFETY_MARGIN_WATTS"
                 ;;
+            SMA_LOG_FILE)
+                SMA_LOG_FILE="$value"
+                debug "Config: SMA_LOG_FILE=$SMA_LOG_FILE"
+                ;;
             *)
                 debug "Unknown config key: $key"
                 ;;
@@ -115,6 +120,7 @@ init_config() {
     P1_IP="${P1_IP_ENV:-$P1_IP}"
     MAX_POWER_LIMIT_WATTS="${MAX_POWER_LIMIT_WATTS_ENV:-$MAX_POWER_LIMIT_WATTS}"
     SAFETY_MARGIN_WATTS="${SAFETY_MARGIN_WATTS_ENV:-$SAFETY_MARGIN_WATTS}"
+    SMA_LOG_FILE="${SMA_LOG_FILE_ENV:-$SMA_LOG_FILE}"
 }
 
 # ============================================================================
@@ -131,7 +137,6 @@ readonly MAX_AMPERAGE=16                                    # Maximum charging a
 readonly PV_MODE=4                                          # PV loading mode value
 readonly LOAD_DIFF_THRESHOLD=500                            # Watts threshold for load adjustment
 readonly CURL_TIMEOUT=3                                     # Curl timeout for API calls
-readonly SMA_LOG_FILE="$HOME/sma-bluetooth/tmp/sma-update.log"
 
 # Derived constants (will be recalculated after config load)
 TARGET_LIMIT_WATTS=$((MAX_POWER_LIMIT_WATTS - SAFETY_MARGIN_WATTS))
@@ -354,12 +359,12 @@ run_load_management() {
     
     local charger_mode
     charger_mode=$(get_charger_mode "$charger_response")
-
-    local charger_amp
-    charger_amp=$(get_charger_amperage "$charger_response")
     
     # Only run load management if NOT in PV mode or power is high
     if [[ $charger_mode -ne $PV_MODE ]] || [[ $charger_power -gt 4400 ]]; then
+        local charger_amp
+        charger_amp=$(get_charger_amperage "$charger_response")
+        
         local house_power
         house_power=$(read_house_power) || return 1
         
@@ -372,10 +377,8 @@ run_load_management() {
             set_charger_amperage "$new_amp"
         fi
     else
-        # PV mode: set to maximum if value has changed
-        if [[ $charger_amp -ne $MAX_AMPERAGE ]]; then
-          set_charger_amperage "$MAX_AMPERAGE"
-        fi
+        # PV mode: set to maximum
+        set_charger_amperage "$MAX_AMPERAGE"
     fi
 }
 
