@@ -67,9 +67,9 @@ var (
 
 // ChargerStatus maps the go-eCharger API response
 type ChargerStatus struct {
-	Lmo *int      `json:"lmo"` // Charger Mode
-	Amp *int      `json:"amp"` // Current Amperage
-	Nrg []float64 `json:"nrg"` // Energy array (index 11 is total power)
+	Lmo *int      `json:"lmo"`
+	Amp *int      `json:"amp"`
+	Nrg []float64 `json:"nrg"`
 }
 
 // HomeWizardData maps the P1 meter API response
@@ -82,7 +82,7 @@ func initConfig() Config {
 	c := Config{}
 	flag.StringVar(&c.ChargerIP, "charger", "192.168.1.50", "IP address of the go-eCharger")
 	flag.StringVar(&c.P1IP, "p1", "192.168.1.60", "IP address of the HomeWizard P1 Meter")
-	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file")
+	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
 	flag.BoolVar(&c.DebugMode, "debug", false, "Enable debug output")
@@ -119,6 +119,12 @@ func debugLog(cfg Config, format string, v ...interface{}) {
 
 // readPVPower extracts the most recent Total Power from the SMA log
 func readPVPower(cfg Config) int {
+	// Bypass file reading if the path is empty
+	if cfg.SMALogPath == "" {
+		debugLog(cfg, "SMA log reading disabled (path is empty), PV power set to 0W")
+		return 0
+	}
+
 	file, err := os.Open(cfg.SMALogPath)
 	if err != nil {
 		debugLog(cfg, "SMA log file unreadable (%v), retaining last valid power: %dW", err, pvPowerW)
@@ -198,7 +204,7 @@ func sendPVData(cfg Config, housePower, pvPower int) error {
 	}
 	defer resp.Body.Close()
 	
-	debugLog(cfg, "Sent PV data to charger: pGrid=%d, pPv=%d", housePower, pvPower)
+	debugLog(cfg, "Sent grid/PV data to charger: pGrid=%d, pPv=%d", housePower, pvPower)
 	return nil
 }
 
@@ -222,7 +228,6 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 		chargerPower = int(status.Nrg[11])
 	}
 
-	// Calculate load if NOT in PV mode OR if charger power is high
 	if chargerMode != PVMode || chargerPower > 4400 {
 		housePower, err := readHousePower(cfg)
 		if err != nil {
@@ -238,7 +243,6 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 		availablePower := targetLimitWatts - otherPower
 		newAmp := availablePower / wattPerAmp
 
-		// Push-up adjustment for weaker chargers
 		if chargerPower > 0 {
 			loadDiff := (chargerAmp * wattPerAmp) - chargerPower
 			if loadDiff >= LoadDiffThreshold {
@@ -246,7 +250,6 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 			}
 		}
 
-		// Enforce safety limits
 		if newAmp > MaxAmperage {
 			newAmp = MaxAmperage
 		}
@@ -254,13 +257,11 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 			newAmp = MinAmperage
 		}
 
-		// Execute change if needed
 		if newAmp != chargerAmp {
 			log.Printf("[INFO] Adjusting charger: %dA -> %dA (~%dW)", chargerAmp, newAmp, newAmp*wattPerAmp)
 			setChargerAmperage(cfg, newAmp)
 		}
 	} else {
-		// Enforce maximum in PV mode
 		if chargerAmp != MaxAmperage {
 			setChargerAmperage(cfg, MaxAmperage)
 		}
@@ -268,17 +269,19 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 }
 
 func runPVCharging(cfg Config) {
-	if pvPowerW <= 0 {
+	// Skip updates if SMA logging is active but there is no solar power
+	if cfg.SMALogPath != "" && pvPowerW <= 0 {
 		debugLog(cfg, "No PV power available, skipping update")
 		return
 	}
 
 	housePower, err := readHousePower(cfg)
-	if err != nil || housePower == 0 {
-		debugLog(cfg, "Skipping PV charging: invalid house power")
+	if err != nil {
+		debugLog(cfg, "Skipping charger update: invalid house power (%v)", err)
 		return
 	}
 
+	// This sends data if we have PV power (> 0) OR if SMA parsing is entirely disabled (SMALogPath == "")
 	sendPVData(cfg, housePower, pvPowerW)
 }
 
@@ -290,34 +293,33 @@ func main() {
 	log.Println("[INFO] Starting Cross-Platform Controller...")
 	log.Printf("[INFO] Charger IP: %s | Meter IP: %s", cfg.ChargerIP, cfg.P1IP)
 	log.Printf("[INFO] Power limit: %dW | Watt/Amp: %dW", targetLimitWatts, wattPerAmp)
+	if cfg.SMALogPath == "" {
+		log.Println("[INFO] SMA Log parsing is DISABLED")
+	}
 
-	// Setup graceful shutdown listener
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Create non-blocking execution ticker
 	ticker := time.NewTicker(LoopIntervalS * time.Second)
 	defer ticker.Stop()
 
-	// Main execution loop
 	for {
 		select {
 		case <-sigChan:
 			log.Println("[INFO] Shutting down gracefully")
 			return
 		case <-ticker.C:
-			// PV Status interval
 			if loopCounter%PVUpdateIntervalS == 0 {
 				pvPowerW = readPVPower(cfg)
-				debugLog(cfg, "Updated PV power: %dW", pvPowerW)
+				if cfg.SMALogPath != "" {
+					debugLog(cfg, "Updated PV power: %dW", pvPowerW)
+				}
 			}
 
-			// Load Management interval
 			if loopCounter%MeterCheckIntervalS == 0 {
 				runLoadManagement(cfg, targetLimitWatts, wattPerAmp)
 			}
 
-			// Constant PV data feed
 			runPVCharging(cfg)
 			
 			loopCounter++
