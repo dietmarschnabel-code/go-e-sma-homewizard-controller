@@ -22,7 +22,7 @@ The program supports these flags:
 
 - `-charger`: go-e charger IP, default `192.168.1.50`
 - `-p1`: HomeWizard P1 meter IP, default `192.168.1.60`
-- `-sma-log`: SMA log file path, default `C:\temp\sma-update.log`
+- `-sma-log`: SMA log file path, default `C:\temp\sma-update.log` (if set empty the system will skip PV Data reading and still forward to the Charger.)
 - `-max-power`: maximum allowed power in watts, default `10000`
 - `-margin`: safety margin in watts, default `300`
 - `-debug`: enable debug logging
