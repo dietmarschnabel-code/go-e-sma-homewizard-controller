@@ -16,6 +16,26 @@ To cross-compile from Linux or macOS:
 GOOS=windows GOARCH=amd64 go build -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
 ```
 
+## Optinal sunset and sunrise calculation
+
+you have to init utilization of this external functionality:
+
+go mod init go-e-sma-homewizard-controller
+go get github.com/nathan-osman/go-sunrise
+
+go build -tags solar -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+
+or
+
+GOOS=windows GOARCH=amd64 go build -tags solar -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+
+can be used to include this calculation.
+
+go mod init go-e-sma-homewizard-controller
+go get github.com/nathan-osman/go-sunrise
+
+
+
 ## Command-line parameters
 
 The program supports these flags:
