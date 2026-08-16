@@ -1,19 +1,19 @@
 /*
-    go-e-sma-homewizard-controller
-    Copyright (C) 2026  Dietmar Schnabel
+   go-e-sma-homewizard-controller
+   Copyright (C) 2026  Dietmar Schnabel
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 package main
@@ -55,6 +55,8 @@ type Config struct {
 	SMALogPath         string
 	MaxPowerLimitWatts int
 	SafetyMarginWatts  int
+	Latitude           float64
+	Longitude          float64
 	DebugMode          bool
 }
 
@@ -85,6 +87,11 @@ func initConfig() Config {
 	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
+	
+	// Set out-of-bounds defaults to detect if they were explicitly configured
+	flag.Float64Var(&c.Latitude, "lat", 999.0, "Latitude (set to enable precise sunrise calculation)")
+	flag.Float64Var(&c.Longitude, "lng", 999.0, "Longitude (set to enable precise sunrise calculation)")
+	
 	flag.BoolVar(&c.DebugMode, "debug", false, "Enable debug output")
 	flag.Parse()
 
@@ -121,7 +128,6 @@ func debugLog(cfg Config, format string, v ...interface{}) {
 func readPVPower(cfg Config) int {
 	// Bypass file reading if the path is empty
 	if cfg.SMALogPath == "" {
-		debugLog(cfg, "SMA log reading disabled (path is empty), PV power set to 0W")
 		return 0
 	}
 
@@ -275,13 +281,19 @@ func runPVCharging(cfg Config) {
 		return
 	}
 
+	// Disable updates if SMA logging is disabled AND it is nighttime
+	// The isNightTime function is automatically wired up during compilation based on your build tags
+	if cfg.SMALogPath == "" && isNightTime(cfg.Latitude, cfg.Longitude) {
+		debugLog(cfg, "Nighttime detected, skipping update")
+		return
+	}
+
 	housePower, err := readHousePower(cfg)
 	if err != nil {
 		debugLog(cfg, "Skipping charger update: invalid house power (%v)", err)
 		return
 	}
 
-	// This sends data if we have PV power (> 0) OR if SMA parsing is entirely disabled (SMALogPath == "")
 	sendPVData(cfg, housePower, pvPowerW)
 }
 
@@ -295,6 +307,9 @@ func main() {
 	log.Printf("[INFO] Power limit: %dW | Watt/Amp: %dW", targetLimitWatts, wattPerAmp)
 	if cfg.SMALogPath == "" {
 		log.Println("[INFO] SMA Log parsing is DISABLED")
+	}
+	if cfg.Latitude != 999.0 && cfg.Longitude != 999.0 {
+		log.Printf("[INFO] Coordinates supplied: %.4f, %.4f", cfg.Latitude, cfg.Longitude)
 	}
 
 	sigChan := make(chan os.Signal, 1)
