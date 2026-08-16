@@ -28,6 +28,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -79,23 +80,62 @@ type HomeWizardData struct {
 	ActivePowerW float64 `json:"active_power_w"`
 }
 
+// loadLinuxConfig attempts to read /etc/go-e-sma-homewizard-controller on Linux systems.
+// It parses KEY=VALUE pairs and sets them as environment variables.
+func loadLinuxConfig() {
+	if runtime.GOOS != "linux" {
+		return // Silently skip on Windows or other OS
+	}
+
+	configPath := "/etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf"
+	file, err := os.Open(configPath)
+	if err != nil {
+		return // File does not exist or cannot be read, continue with defaults
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Split on the first '=' character
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+
+			// Remove surrounding quotes if users included them in the config file
+			value = strings.Trim(value, `"'`)
+
+			os.Setenv(key, value)
+		}
+	}
+}
+
 // initConfig parses flags and environment variables
 func initConfig() Config {
+	// Attempt to load the Linux /etc/ configuration file first
+	loadLinuxConfig()
+
 	c := Config{}
 	flag.StringVar(&c.ChargerIP, "charger", "192.168.1.50", "IP address of the go-eCharger")
 	flag.StringVar(&c.P1IP, "p1", "192.168.1.60", "IP address of the HomeWizard P1 Meter")
 	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
-	
+
 	// Set out-of-bounds defaults to detect if they were explicitly configured
 	flag.Float64Var(&c.Latitude, "lat", 999.0, "Latitude (set to enable precise sunrise calculation)")
 	flag.Float64Var(&c.Longitude, "lng", 999.0, "Longitude (set to enable precise sunrise calculation)")
-	
+
 	flag.BoolVar(&c.DebugMode, "debug", false, "Enable debug output")
 	flag.Parse()
 
-	// Environment variable overrides
+	// Environment variable overrides (these pick up the /etc/ file values)
 	if env := os.Getenv("CHARGER_IP"); env != "" {
 		c.ChargerIP = env
 	}
@@ -115,6 +155,17 @@ func initConfig() Config {
 			c.SafetyMarginWatts = val
 		}
 	}
+	if env := os.Getenv("LATITUDE"); env != "" {
+		if val, err := strconv.ParseFloat(env, 64); err == nil {
+			c.Latitude = val
+		}
+	}
+	if env := os.Getenv("LONGITUDE"); env != "" {
+		if val, err := strconv.ParseFloat(env, 64); err == nil {
+			c.Longitude = val
+		}
+	}
+
 	return c
 }
 
@@ -202,14 +253,14 @@ func setChargerAmperage(cfg Config, amperage int) error {
 func sendPVData(cfg Config, housePower, pvPower int) error {
 	v := url.Values{}
 	v.Add("ids", fmt.Sprintf(`{"pGrid":%d,"pPv":%d,"pAkku":0}`, housePower, pvPower))
-	
+
 	reqUrl := fmt.Sprintf("http://%s/api/set?%s", cfg.ChargerIP, v.Encode())
 	resp, err := httpClient.Get(reqUrl)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	debugLog(cfg, "Sent grid/PV data to charger: pGrid=%d, pPv=%d", housePower, pvPower)
 	return nil
 }
@@ -336,7 +387,7 @@ func main() {
 			}
 
 			runPVCharging(cfg)
-			
+
 			loopCounter++
 		}
 	}

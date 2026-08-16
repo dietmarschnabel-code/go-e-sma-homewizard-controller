@@ -23,11 +23,11 @@ you have to init utilization of this external functionality:
 go mod init go-e-sma-homewizard-controller
 go get github.com/nathan-osman/go-sunrise
 
-go build -tags solar -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+go build -tags solar -o go-e-sma-homewizard-controller.exe .
 
 or
 
-GOOS=windows GOARCH=amd64 go build -tags solar -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+GOOS=windows GOARCH=amd64 go build -tags solar -o go-e-sma-homewizard-controller.exe .
 
 can be used to include this calculation.
 
