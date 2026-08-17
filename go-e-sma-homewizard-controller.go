@@ -122,7 +122,7 @@ func initConfig() Config {
 	c := Config{}
 	flag.StringVar(&c.ChargerIP, "charger", "192.168.1.50", "IP address of the go-eCharger")
 	flag.StringVar(&c.P1IP, "p1", "192.168.1.60", "IP address of the HomeWizard P1 Meter")
-	flag.StringVar(&c.P1CSVPath, "p1-csv", "p1_data.csv", "Path to the output P1 CSV log file (leave empty to disable)")
+	flag.StringVar(&c.P1CSVPath, "p1-csv", "p1_data.csv", "Base path to the output P1 CSV log file (leave empty to disable)")
 	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
@@ -234,6 +234,16 @@ func readHousePower(cfg Config) (int, error) {
 	return int(data.ActivePowerW), nil
 }
 
+// getDailyCSVPath inserts "-YYYYMMDD" right before the file extension
+func getDailyCSVPath(basePath string, t time.Time) string {
+	dateStr := t.Format("-20060102")
+	extIdx := strings.LastIndex(basePath, ".")
+	if extIdx != -1 {
+		return basePath[:extIdx] + dateStr + basePath[extIdx:]
+	}
+	return basePath + dateStr + ".csv"
+}
+
 func logP1ToCSV(cfg Config) {
 	if cfg.P1CSVPath == "" {
 		return
@@ -245,14 +255,17 @@ func logP1ToCSV(cfg Config) {
 		return
 	}
 
+	now := time.Now()
+	targetPath := getDailyCSVPath(cfg.P1CSVPath, now)
+
 	fileExists := true
-	if _, err := os.Stat(cfg.P1CSVPath); os.IsNotExist(err) {
+	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		fileExists = false
 	}
 
-	file, err := os.OpenFile(cfg.P1CSVPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		debugLog(cfg, "[P1 CSV] Failed to open file: %v", err)
+		debugLog(cfg, "[P1 CSV] Failed to open file %s: %v", targetPath, err)
 		return
 	}
 	defer file.Close()
@@ -264,7 +277,7 @@ func logP1ToCSV(cfg Config) {
 		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w"})
 	}
 
-	timestamp := time.Now().Truncate(time.Minute).Format("2006-01-02 15:04:05")
+	timestamp := now.Truncate(time.Minute).Format("2006-01-02 15:04:05")
 	record := []string{
 		timestamp,
 		strconv.FormatFloat(data.TotalPowerImportKWh, 'f', 3, 64),
@@ -273,9 +286,9 @@ func logP1ToCSV(cfg Config) {
 	}
 
 	if err := writer.Write(record); err != nil {
-		debugLog(cfg, "[P1 CSV] Failed to write CSV row: %v", err)
+		debugLog(cfg, "[P1 CSV] Failed to write CSV row to %s: %v", targetPath, err)
 	} else {
-		debugLog(cfg, "[P1 CSV] Recorded reading at %s", timestamp)
+		debugLog(cfg, "[P1 CSV] Recorded reading in %s at %s", targetPath, timestamp)
 	}
 }
 
@@ -284,7 +297,7 @@ func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
 		return
 	}
 
-	log.Printf("[INFO] P1 CSV Logging active -> %s (5-min intervals)", cfg.P1CSVPath)
+	log.Printf("[INFO] P1 Daily CSV Logging active -> %s (5-min intervals)", cfg.P1CSVPath)
 
 	for {
 		now := time.Now()
