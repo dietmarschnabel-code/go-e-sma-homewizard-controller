@@ -20,6 +20,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -47,12 +48,14 @@ const (
 	PVMode              = 4
 	LoadDiffThreshold   = 500
 	CurlTimeout         = 3 * time.Second
+	P1CSVLogInterval    = 5 * time.Minute
 )
 
 // Config holds the execution parameters
 type Config struct {
 	ChargerIP          string
 	P1IP               string
+	P1CSVPath          string
 	SMALogPath         string
 	MaxPowerLimitWatts int
 	SafetyMarginWatts  int
@@ -75,13 +78,14 @@ type ChargerStatus struct {
 	Nrg []float64 `json:"nrg"`
 }
 
-// HomeWizardData maps the P1 meter API response
+// HomeWizardData maps the complete P1 meter API response
 type HomeWizardData struct {
-	ActivePowerW float64 `json:"active_power_w"`
+	ActivePowerW        float64 `json:"active_power_w"`
+	TotalPowerImportKWh float64 `json:"total_power_import_kwh"`
+	TotalPowerExportKWh float64 `json:"total_power_export_kwh"`
 }
 
 // loadLinuxConfig attempts to read /etc/go-e-sma-homewizard-controller on Linux systems.
-// It parses KEY=VALUE pairs and sets them as environment variables.
 func loadLinuxConfig() {
 	if runtime.GOOS != "linux" {
 		return // Silently skip on Windows or other OS
@@ -97,20 +101,15 @@ func loadLinuxConfig() {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 
-		// Split on the first '=' character
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 {
 			key := strings.TrimSpace(parts[0])
 			value := strings.TrimSpace(parts[1])
-
-			// Remove surrounding quotes if users included them in the config file
 			value = strings.Trim(value, `"'`)
-
 			os.Setenv(key, value)
 		}
 	}
@@ -118,29 +117,31 @@ func loadLinuxConfig() {
 
 // initConfig parses flags and environment variables
 func initConfig() Config {
-	// Attempt to load the Linux /etc/ configuration file first
 	loadLinuxConfig()
 
 	c := Config{}
 	flag.StringVar(&c.ChargerIP, "charger", "192.168.1.50", "IP address of the go-eCharger")
 	flag.StringVar(&c.P1IP, "p1", "192.168.1.60", "IP address of the HomeWizard P1 Meter")
+	flag.StringVar(&c.P1CSVPath, "p1-csv", "p1_data.csv", "Path to the output P1 CSV log file (leave empty to disable)")
 	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
 
-	// Set out-of-bounds defaults to detect if they were explicitly configured
 	flag.Float64Var(&c.Latitude, "lat", 999.0, "Latitude (set to enable precise sunrise calculation)")
 	flag.Float64Var(&c.Longitude, "lng", 999.0, "Longitude (set to enable precise sunrise calculation)")
 
 	flag.BoolVar(&c.DebugMode, "debug", false, "Enable debug output")
 	flag.Parse()
 
-	// Environment variable overrides (these pick up the /etc/ file values)
+	// Environment variable overrides
 	if env := os.Getenv("CHARGER_IP"); env != "" {
 		c.ChargerIP = env
 	}
 	if env := os.Getenv("P1_IP"); env != "" {
 		c.P1IP = env
+	}
+	if env := os.Getenv("P1_CSV_FILE"); env != "" {
+		c.P1CSVPath = env
 	}
 	if env := os.Getenv("SMA_LOG_FILE"); env != "" {
 		c.SMALogPath = env
@@ -177,7 +178,6 @@ func debugLog(cfg Config, format string, v ...interface{}) {
 
 // readPVPower extracts the most recent Total Power from the SMA log
 func readPVPower(cfg Config) int {
-	// Bypass file reading if the path is empty
 	if cfg.SMALogPath == "" {
 		return 0
 	}
@@ -211,18 +211,91 @@ func readPVPower(cfg Config) int {
 	return pvPowerW
 }
 
-func readHousePower(cfg Config) (int, error) {
+func fetchP1Data(cfg Config) (HomeWizardData, error) {
+	var data HomeWizardData
 	resp, err := httpClient.Get(fmt.Sprintf("http://%s/api/v1/data", cfg.P1IP))
 	if err != nil {
-		return 0, err
+		return data, err
 	}
 	defer resp.Body.Close()
 
-	var data HomeWizardData
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	return data, err
+}
+
+func readHousePower(cfg Config) (int, error) {
+	data, err := fetchP1Data(cfg)
+	if err != nil {
 		return 0, err
 	}
 	return int(data.ActivePowerW), nil
+}
+
+func logP1ToCSV(cfg Config) {
+	if cfg.P1CSVPath == "" {
+		return
+	}
+
+	data, err := fetchP1Data(cfg)
+	if err != nil {
+		debugLog(cfg, "[P1 CSV] Failed to query meter: %v", err)
+		return
+	}
+
+	fileExists := true
+	if _, err := os.Stat(cfg.P1CSVPath); os.IsNotExist(err) {
+		fileExists = false
+	}
+
+	file, err := os.OpenFile(cfg.P1CSVPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		debugLog(cfg, "[P1 CSV] Failed to open file: %v", err)
+		return
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	if !fileExists {
+		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w"})
+	}
+
+	timestamp := time.Now().Truncate(time.Minute).Format("2006-01-02 15:04:05")
+	record := []string{
+		timestamp,
+		strconv.FormatFloat(data.TotalPowerImportKWh, 'f', 3, 64),
+		strconv.FormatFloat(data.TotalPowerExportKWh, 'f', 3, 64),
+		strconv.FormatFloat(data.ActivePowerW, 'f', 0, 64),
+	}
+
+	if err := writer.Write(record); err != nil {
+		debugLog(cfg, "[P1 CSV] Failed to write CSV row: %v", err)
+	} else {
+		debugLog(cfg, "[P1 CSV] Recorded reading at %s", timestamp)
+	}
+}
+
+// startP1CSVLogger runs a background routine aligned on 5-minute clock marks
+func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
+	if cfg.P1CSVPath == "" {
+		return
+	}
+
+	log.Printf("[INFO] P1 CSV Logging active -> %s (5-min intervals)", cfg.P1CSVPath)
+
+	for {
+		now := time.Now()
+		nextInterval := now.Truncate(P1CSVLogInterval).Add(P1CSVLogInterval)
+		sleepDuration := time.Until(nextInterval)
+
+		select {
+		case <-stopChan:
+			return
+		case <-time.After(sleepDuration):
+			logP1ToCSV(cfg)
+		}
+	}
 }
 
 func readChargerStatus(cfg Config) (ChargerStatus, error) {
@@ -326,14 +399,11 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 }
 
 func runPVCharging(cfg Config) {
-	// Skip updates if SMA logging is active but there is no solar power
 	if cfg.SMALogPath != "" && pvPowerW <= 0 {
 		debugLog(cfg, "No PV power available, skipping update")
 		return
 	}
 
-	// Disable updates if SMA logging is disabled AND it is nighttime
-	// The isNightTime function is automatically wired up during compilation based on your build tags
 	if cfg.SMALogPath == "" && isNightTime(cfg.Latitude, cfg.Longitude) {
 		debugLog(cfg, "Nighttime detected, skipping update")
 		return
@@ -366,6 +436,10 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	// Start P1 CSV Logger background thread
+	stopCSVChan := make(chan struct{})
+	go startP1CSVLogger(cfg, stopCSVChan)
+
 	ticker := time.NewTicker(LoopIntervalS * time.Second)
 	defer ticker.Stop()
 
@@ -373,6 +447,7 @@ func main() {
 		select {
 		case <-sigChan:
 			log.Println("[INFO] Shutting down gracefully")
+			close(stopCSVChan)
 			return
 		case <-ticker.C:
 			if loopCounter%PVUpdateIntervalS == 0 {
