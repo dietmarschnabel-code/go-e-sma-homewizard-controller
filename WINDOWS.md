@@ -7,13 +7,15 @@ This project also contains a Windows-friendly Go executable. The application is 
 From the project directory:
 
 ```bat
+go mod init go-e-sma-homewizard-controller
 go build -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
 ```
 
 To cross-compile from Linux or macOS:
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+go mod init go-e-sma-homewizard-controller
+GOOS=windows GOARCH=amd64 go build -o go-e-sma-homewizard-controller.exe .
 ```
 
 ## Optinal sunset and sunrise calculation
