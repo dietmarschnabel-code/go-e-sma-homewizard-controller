@@ -88,13 +88,13 @@ type HomeWizardData struct {
 // loadLinuxConfig attempts to read /etc/go-e-sma-homewizard-controller on Linux systems.
 func loadLinuxConfig() {
 	if runtime.GOOS != "linux" {
-		return // Silently skip on Windows or other OS
+		return
 	}
 
 	configPath := "/etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf"
 	file, err := os.Open(configPath)
 	if err != nil {
-		return // File does not exist or cannot be read, continue with defaults
+		return
 	}
 	defer file.Close()
 
@@ -133,7 +133,6 @@ func initConfig() Config {
 	flag.BoolVar(&c.DebugMode, "debug", false, "Enable debug output")
 	flag.Parse()
 
-	// Environment variable overrides
 	if env := os.Getenv("CHARGER_IP"); env != "" {
 		c.ChargerIP = env
 	}
@@ -194,9 +193,13 @@ func readPVPower(cfg Config) int {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "Total Power") {
-			fields := strings.Fields(line)
-			if len(fields) >= 15 {
-				lastValidPower = fields[14]
+			// Split around '=' sign: "2026-08-17 15:10:13 Total Power         = 677 Watts"
+			parts := strings.Split(line, "=")
+			if len(parts) >= 2 {
+				valFields := strings.Fields(parts[1])
+				if len(valFields) >= 1 {
+					lastValidPower = valFields[0]
+				}
 			}
 		}
 	}
@@ -276,7 +279,6 @@ func logP1ToCSV(cfg Config) {
 	}
 }
 
-// startP1CSVLogger runs a background routine aligned on 5-minute clock marks
 func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
 	if cfg.P1CSVPath == "" {
 		return
@@ -436,7 +438,6 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start P1 CSV Logger background thread
 	stopCSVChan := make(chan struct{})
 	go startP1CSVLogger(cfg, stopCSVChan)
 
