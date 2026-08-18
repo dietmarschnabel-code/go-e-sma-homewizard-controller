@@ -193,7 +193,6 @@ func readPVPower(cfg Config) int {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "Total Power") {
-			// Split around '=' sign: "2026-08-17 15:10:13 Total Power         = 677 Watts"
 			parts := strings.Split(line, "=")
 			if len(parts) >= 2 {
 				valFields := strings.Fields(parts[1])
@@ -244,20 +243,18 @@ func getDailyCSVPath(basePath string, t time.Time) string {
 	return basePath + dateStr + ".csv"
 }
 
-func logP1ToCSV(cfg Config) {
-	if cfg.P1CSVPath == "" {
-		return
+// getMonthlyCSVPath inserts "-YYYYMM" right before the file extension
+func getMonthlyCSVPath(basePath string, t time.Time) string {
+	dateStr := t.Format("-200601")
+	extIdx := strings.LastIndex(basePath, ".")
+	if extIdx != -1 {
+		return basePath[:extIdx] + dateStr + basePath[extIdx:]
 	}
+	return basePath + dateStr + ".csv"
+}
 
-	data, err := fetchP1Data(cfg)
-	if err != nil {
-		debugLog(cfg, "[P1 CSV] Failed to query meter: %v", err)
-		return
-	}
-
-	now := time.Now()
-	targetPath := getDailyCSVPath(cfg.P1CSVPath, now)
-
+// writeP1CSVFile handles opening/creating a CSV file and appending a single reading
+func writeP1CSVFile(targetPath string, timestamp string, data HomeWizardData, cfg Config) {
 	fileExists := true
 	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		fileExists = false
@@ -277,7 +274,6 @@ func logP1ToCSV(cfg Config) {
 		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w"})
 	}
 
-	timestamp := now.Truncate(time.Minute).Format("2006-01-02 15:04:05")
 	record := []string{
 		timestamp,
 		strconv.FormatFloat(data.TotalPowerImportKWh, 'f', 3, 64),
@@ -292,12 +288,35 @@ func logP1ToCSV(cfg Config) {
 	}
 }
 
+func logP1ToCSV(cfg Config) {
+	if cfg.P1CSVPath == "" {
+		return
+	}
+
+	data, err := fetchP1Data(cfg)
+	if err != nil {
+		debugLog(cfg, "[P1 CSV] Failed to query meter: %v", err)
+		return
+	}
+
+	now := time.Now()
+	timestamp := now.Truncate(time.Minute).Format("2006-01-02 15:04:05")
+
+	// Write daily CSV
+	dailyPath := getDailyCSVPath(cfg.P1CSVPath, now)
+	writeP1CSVFile(dailyPath, timestamp, data, cfg)
+
+	// Write monthly CSV
+	monthlyPath := getMonthlyCSVPath(cfg.P1CSVPath, now)
+	writeP1CSVFile(monthlyPath, timestamp, data, cfg)
+}
+
 func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
 	if cfg.P1CSVPath == "" {
 		return
 	}
 
-	log.Printf("[INFO] P1 Daily CSV Logging active -> %s (5-min intervals)", cfg.P1CSVPath)
+	log.Printf("[INFO] P1 CSV Logging active -> %s (Daily & Monthly, 5-min intervals)", cfg.P1CSVPath)
 
 	for {
 		now := time.Now()
