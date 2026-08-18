@@ -290,6 +290,18 @@ sudo dpkg -i ../go-e-sma-homewizard-controller_*.deb
 sudo systemctl start go-e-sma-homewizard-controller
 ```
 
+### Permissions issues due to systemd settings:
+
+# Override default home directory restrictions to allow read access
+ProtectHome=read-only
+# Explicitly grant read-only access to the exact file path
+ReadOnlyPaths=/home/username/sma-bluetooth/tmp/sma-update.log
+# If ProtectHome=yes is enforced elsewhere, mount only this specific file as read-only
+BindReadOnlyPaths=/home/username/sma-bluetooth/tmp/sma-update.log
+# allow writing of csv files
+ReadWritePaths=/var/www/html/p1
+
+
 ### Updating the Debian package:
 
 ```bash
