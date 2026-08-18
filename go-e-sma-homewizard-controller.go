@@ -253,8 +253,8 @@ func getMonthlyCSVPath(basePath string, t time.Time) string {
 	return basePath + dateStr + ".csv"
 }
 
-// writeP1CSVFile handles opening/creating a CSV file and appending a single reading
-func writeP1CSVFile(targetPath string, timestamp string, data HomeWizardData, cfg Config) {
+// writeDailyCSVRow appends raw 5-minute interval data to the daily CSV file
+func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, cfg Config) {
 	fileExists := true
 	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		fileExists = false
@@ -262,7 +262,7 @@ func writeP1CSVFile(targetPath string, timestamp string, data HomeWizardData, cf
 
 	file, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		debugLog(cfg, "[P1 CSV] Failed to open file %s: %v", targetPath, err)
+		debugLog(cfg, "[P1 CSV] Failed to open daily CSV file %s: %v", targetPath, err)
 		return
 	}
 	defer file.Close()
@@ -274,6 +274,7 @@ func writeP1CSVFile(targetPath string, timestamp string, data HomeWizardData, cf
 		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w"})
 	}
 
+	timestamp := now.Truncate(time.Minute).Format("2006-01-02 15:04:05")
 	record := []string{
 		timestamp,
 		strconv.FormatFloat(data.TotalPowerImportKWh, 'f', 3, 64),
@@ -282,9 +283,86 @@ func writeP1CSVFile(targetPath string, timestamp string, data HomeWizardData, cf
 	}
 
 	if err := writer.Write(record); err != nil {
-		debugLog(cfg, "[P1 CSV] Failed to write CSV row to %s: %v", targetPath, err)
+		debugLog(cfg, "[P1 CSV] Failed to write daily CSV row to %s: %v", targetPath, err)
 	} else {
 		debugLog(cfg, "[P1 CSV] Recorded reading in %s at %s", targetPath, timestamp)
+	}
+}
+
+// getStartOfDayReadings fetches the first reading (e.g. 00:00) from today's daily CSV file
+func getStartOfDayReadings(dailyPath string) (float64, float64, error) {
+	file, err := os.Open(dailyPath)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil || len(records) < 2 {
+		return 0, 0, fmt.Errorf("insufficient records in daily CSV %s", dailyPath)
+	}
+
+	firstRow := records[1] // Row 0 is header, Row 1 is first reading of the day
+	if len(firstRow) < 3 {
+		return 0, 0, fmt.Errorf("malformed row in daily CSV %s", dailyPath)
+	}
+
+	imp, err1 := strconv.ParseFloat(firstRow[1], 64)
+	exp, err2 := strconv.ParseFloat(firstRow[2], 64)
+	if err1 != nil || err2 != nil {
+		return 0, 0, fmt.Errorf("failed to parse start values in daily CSV %s", dailyPath)
+	}
+
+	return imp, exp, nil
+}
+
+// updateMonthlyCSV upserts a single daily delta row (date,import_kwh,export_kwh) for today in the monthly CSV
+func updateMonthlyCSV(monthlyPath string, dateStr string, importKWh, exportKWh float64, cfg Config) {
+	var records [][]string
+
+	if file, err := os.Open(monthlyPath); err == nil {
+		reader := csv.NewReader(file)
+		if existingRecords, err := reader.ReadAll(); err == nil {
+			records = existingRecords
+		}
+		file.Close()
+	}
+
+	// Ensure header exists
+	if len(records) == 0 || len(records[0]) == 0 || records[0][0] != "date" {
+		records = append([][]string{{"date", "import_kwh", "export_kwh"}}, records...)
+	}
+
+	impStr := strconv.FormatFloat(importKWh, 'f', 3, 64)
+	expStr := strconv.FormatFloat(exportKWh, 'f', 3, 64)
+	newRow := []string{dateStr, impStr, expStr}
+
+	updated := false
+	for i := 1; i < len(records); i++ {
+		if len(records[i]) > 0 && records[i][0] == dateStr {
+			records[i] = newRow
+			updated = true
+			break
+		}
+	}
+
+	if !updated {
+		records = append(records, newRow)
+	}
+
+	file, err := os.OpenFile(monthlyPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		debugLog(cfg, "[P1 CSV] Failed to open monthly CSV file %s: %v", monthlyPath, err)
+		return
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	if err := writer.WriteAll(records); err != nil {
+		debugLog(cfg, "[P1 CSV] Failed to write monthly CSV %s: %v", monthlyPath, err)
+	} else {
+		debugLog(cfg, "[P1 CSV] Updated monthly row in %s for %s: import=%s, export=%s", monthlyPath, dateStr, impStr, expStr)
 	}
 }
 
@@ -300,15 +378,32 @@ func logP1ToCSV(cfg Config) {
 	}
 
 	now := time.Now()
-	timestamp := now.Truncate(time.Minute).Format("2006-01-02 15:04:05")
-
-	// Write daily CSV
 	dailyPath := getDailyCSVPath(cfg.P1CSVPath, now)
-	writeP1CSVFile(dailyPath, timestamp, data, cfg)
 
-	// Write monthly CSV
+	// 1. Log raw reading to Daily CSV
+	writeDailyCSVRow(dailyPath, now, data, cfg)
+
+	// 2. Read baseline reading (start of day / 00:00)
+	startImport, startExport, err := getStartOfDayReadings(dailyPath)
+	if err != nil {
+		startImport = data.TotalPowerImportKWh
+		startExport = data.TotalPowerExportKWh
+	}
+
+	// Calculate net daily consumption & production so far
+	dailyImport := data.TotalPowerImportKWh - startImport
+	if dailyImport < 0 {
+		dailyImport = 0
+	}
+	dailyExport := data.TotalPowerExportKWh - startExport
+	if dailyExport < 0 {
+		dailyExport = 0
+	}
+
+	// 3. Update single row for today in Monthly CSV
 	monthlyPath := getMonthlyCSVPath(cfg.P1CSVPath, now)
-	writeP1CSVFile(monthlyPath, timestamp, data, cfg)
+	dateStr := now.Format("2006-01-02")
+	updateMonthlyCSV(monthlyPath, dateStr, dailyImport, dailyExport, cfg)
 }
 
 func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
@@ -316,7 +411,7 @@ func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
 		return
 	}
 
-	log.Printf("[INFO] P1 CSV Logging active -> %s (Daily & Monthly, 5-min intervals)", cfg.P1CSVPath)
+	log.Printf("[INFO] P1 CSV Logging active -> %s (Daily interval & Monthly daily totals)", cfg.P1CSVPath)
 
 	for {
 		now := time.Now()
@@ -435,11 +530,6 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 func runPVCharging(cfg Config) {
 	if cfg.SMALogPath != "" && pvPowerW <= 0 {
 		debugLog(cfg, "No PV power available, skipping update")
-		return
-	}
-
-	if cfg.SMALogPath == "" && isNightTime(cfg.Latitude, cfg.Longitude) {
-		debugLog(cfg, "Nighttime detected, skipping update")
 		return
 	}
 
