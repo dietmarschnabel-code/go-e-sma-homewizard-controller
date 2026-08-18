@@ -58,42 +58,29 @@ check_dependencies() {
         print_success "dh (debhelper)"
     fi
     
-    if ! command -v bash &> /dev/null; then
-        print_error "bash not found"
+    if ! command -v go &> /dev/null; then
+        print_error "go not found (install: sudo apt-get install golang-go)"
         missing_deps=1
     else
-        print_success "bash"
-    fi
-    
-    if ! command -v curl &> /dev/null; then
-        print_warning "curl not found (required at runtime)"
-    else
-        print_success "curl (runtime dependency)"
-    fi
-    
-    if ! command -v jq &> /dev/null; then
-        print_warning "jq not found (required at runtime)"
-    else
-        print_success "jq (runtime dependency)"
+        print_success "go"
     fi
     
     if [ $missing_deps -eq 1 ]; then
         print_error "Missing build dependencies. Install with:"
-        echo "  sudo apt-get install build-essential devscripts debhelper"
+        echo "  sudo apt-get install build-essential devscripts debhelper golang-go"
         exit 1
     fi
     
     echo ""
 }
 
-# Validate script syntax
-validate_script() {
-    print_header "Validating Script Syntax"
-    
-    if bash -n "$SCRIPT_DIR/go-e-sma-homewizard-controller.sh"; then
-        print_success "Script syntax is valid"
+validate_go() {
+    print_header "Validating Go Source"
+
+    if (cd "$SCRIPT_DIR" && go vet go-e-sma-homewizard-controller.go nighttime_basic.go); then
+        print_success "Go source is valid"
     else
-        print_error "Script has syntax errors"
+        print_error "Go source validation failed"
         exit 1
     fi
     
@@ -162,7 +149,7 @@ main() {
     print_header "go-e-sma-homewizard-controller - Debian Package Builder"
     
     check_dependencies
-    validate_script
+    validate_go
     build_package
     show_installation_instructions
     

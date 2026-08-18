@@ -5,7 +5,8 @@
 set -e
 
 PACKAGE_NAME="go-e-sma-homewizard-controller"
-SCRIPT_SOURCE="./go-e-sma-homewizard-controller.sh"
+GO_SOURCE="./go-e-sma-homewizard-controller.go"
+GO_NIGHTTIME_SOURCE="./nighttime_basic.go"
 SCRIPT_TARGET="/usr/bin/go-e-sma-homewizard-controller"
 CONFIG_DIR="/etc/go-e-sma-homewizard-controller"
 CONFIG_FILE="go-e-sma-homewizard-controller.conf"
@@ -54,57 +55,45 @@ check_root() {
 check_dependencies() {
     print_header "Checking Dependencies"
     
-    if ! command -v bash &> /dev/null; then
-        print_error "bash not found"
+    if ! command -v go &> /dev/null; then
+        print_error "go not found"
         exit 1
     fi
-    print_success "bash"
-    
-    if ! command -v curl &> /dev/null; then
-        print_error "curl not found (required at runtime)"
-        exit 1
-    fi
-    print_success "curl"
-    
-    if ! command -v jq &> /dev/null; then
-        print_error "jq not found (required at runtime)"
-        exit 1
-    fi
-    print_success "jq"
+    print_success "go"
     
     echo ""
 }
 
-# Validate script syntax
+# Build executable
 validate_script() {
-    print_header "Validating Script Syntax"
-    
-    if [ ! -f "$SCRIPT_SOURCE" ]; then
-        print_error "Script file not found: $SCRIPT_SOURCE"
+    print_header "Building Go Executable"
+
+    if [ ! -f "$GO_SOURCE" ] || [ ! -f "$GO_NIGHTTIME_SOURCE" ]; then
+        print_error "Go source files not found"
         exit 1
     fi
-    
-    if bash -n "$SCRIPT_SOURCE"; then
-        print_success "Script syntax is valid"
+
+    if go build -o "$PACKAGE_NAME" "$GO_SOURCE" "$GO_NIGHTTIME_SOURCE"; then
+        print_success "Go executable built"
     else
-        print_error "Script has syntax errors"
+        print_error "Go build failed"
         exit 1
     fi
     
     echo ""
 }
 
-# Install script
+# Install executable
 install_script() {
-    print_header "Installing Script"
+    print_header "Installing Executable"
     
     if [ -f "$SCRIPT_TARGET" ]; then
-        print_warning "Script already exists at $SCRIPT_TARGET (backing up to $SCRIPT_TARGET.bak)"
+        print_warning "Executable already exists at $SCRIPT_TARGET (backing up to $SCRIPT_TARGET.bak)"
         cp "$SCRIPT_TARGET" "$SCRIPT_TARGET.bak"
     fi
     
-    install -m 0755 "$SCRIPT_SOURCE" "$SCRIPT_TARGET"
-    print_success "Script installed to $SCRIPT_TARGET"
+    install -m 0755 "$PACKAGE_NAME" "$SCRIPT_TARGET"
+    print_success "Executable installed to $SCRIPT_TARGET"
     
     echo ""
 }

@@ -6,15 +6,10 @@ License:        MIT
 URL:            https://github.com/dietmarschnabel-code/go-e-sma-homewizard-controller
 Source0:        %{name}-%{version}.tar.gz
 
-BuildArch:      noarch
-BuildRequires:  bash
-
-Requires:       bash
-Requires:       curl
-Requires:       jq
+BuildRequires:  golang
 
 %description
-Linux bash script to provide data for a go-e-charger with support for load
+Go application to provide data for a go-e-charger with support for load
 management to avoid higher Austrian net charges for above 10KW house power.
 Includes sample connection to SMA inverter via Bluetooth.
 
@@ -27,9 +22,7 @@ Features:
 %setup -q
 
 %build
-# No build required for shell script
-# Validate bash syntax
-bash -n %{name}.sh
+go build -o %{name} go-e-sma-homewizard-controller.go nighttime_basic.go
 
 %install
 # Create directories
@@ -38,8 +31,8 @@ install -d %{buildroot}%{_sysconfdir}/%{name}
 install -d %{buildroot}%{_unitdir}
 install -d -m 0775 %{buildroot}%{_localstatedir}/log/%{name}
 
-# Install main script
-install -m 0755 %{name}.sh %{buildroot}%{_bindir}/%{name}
+# Install compiled executable
+install -m 0755 %{name} %{buildroot}%{_bindir}/%{name}
 
 # Install configuration file
 install -m 0644 %{name}.conf %{buildroot}%{_sysconfdir}/%{name}/%{name}.conf.example

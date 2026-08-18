@@ -60,19 +60,19 @@ fi
 
 print_success "rpmbuild found"
 
-if ! command -v bash &> /dev/null; then
-    print_error "bash is required but not installed"
+if ! command -v go &> /dev/null; then
+    print_error "go is required but not installed"
     exit 1
 fi
 
-print_success "bash found"
+print_success "go found"
 
-# Verify bash syntax
-print_header "Validating Bash Syntax"
-if bash -n "${PACKAGE_NAME}.sh"; then
-    print_success "Bash script syntax is valid"
+# Verify Go source
+print_header "Validating Go Source"
+if go vet go-e-sma-homewizard-controller.go nighttime_basic.go; then
+    print_success "Go source is valid"
 else
-    print_error "Bash script has syntax errors"
+    print_error "Go source validation failed"
     exit 1
 fi
 
@@ -80,7 +80,10 @@ fi
 print_header "Checking Required Files"
 
 REQUIRED_FILES=(
-    "${PACKAGE_NAME}.sh"
+    "${PACKAGE_NAME}.go"
+    "nighttime_basic.go"
+    "nighttime_solar.go"
+    "Makefile"
     "${PACKAGE_NAME}.conf"
     "debian/systemd/${PACKAGE_NAME}.service"
     "README.md"
@@ -100,7 +103,7 @@ done
 # Create build directory structure
 print_header "Setting Up Build Environment"
 
-BUILD_DIR="/tmp/rpmbuild-$$"
+BUILD_DIR=$(mktemp -d "${TMPDIR:-/tmp}/rpmbuild-XXXXXX")
 mkdir -p "${BUILD_DIR}"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
 print_success "Build directory created: $BUILD_DIR"
@@ -112,7 +115,8 @@ SOURCE_DIR="${BUILD_DIR}/SOURCES/${PACKAGE_NAME}-${VERSION}"
 mkdir -p "$SOURCE_DIR"
 
 # Copy files to source directory
-cp "${PACKAGE_NAME}.sh" "$SOURCE_DIR/"
+cp "${PACKAGE_NAME}.go" "$SOURCE_DIR/"
+cp nighttime_basic.go nighttime_solar.go Makefile "$SOURCE_DIR/"
 cp "${PACKAGE_NAME}.conf" "$SOURCE_DIR/"
 cp -r debian/ "$SOURCE_DIR/"
 cp README.md "$SOURCE_DIR/"
@@ -139,12 +143,12 @@ rpmbuild --define "_topdir ${BUILD_DIR}" -ba "${BUILD_DIR}/SPECS/${SPEC_FILE}"
 # Copy built RPMs to current directory
 print_header "Finalizing Build"
 
-# Find and copy the noarch RPM (handles dist tags like .fc44, .el8, etc.)
-NOARCH_RPM=$(find "${BUILD_DIR}/RPMS/noarch/" -name "${PACKAGE_NAME}-${VERSION}-*.noarch.rpm" 2>/dev/null | head -1)
-if [ -f "$NOARCH_RPM" ]; then
-    cp "$NOARCH_RPM" ./
-    NOARCH_FILENAME=$(basename "$NOARCH_RPM")
-    print_success "RPM package created: $NOARCH_FILENAME"
+# Find and copy the architecture-specific RPM (handles dist tags like .fc44, .el8, etc.)
+RPM_FILE=$(find "${BUILD_DIR}/RPMS/" -type f -name "${PACKAGE_NAME}-${VERSION}-*.rpm" 2>/dev/null | head -1)
+if [ -f "$RPM_FILE" ]; then
+    cp "$RPM_FILE" ./
+    RPM_FILENAME=$(basename "$RPM_FILE")
+    print_success "RPM package created: $RPM_FILENAME"
 else
     print_error "RPM package build failed"
     exit 1
@@ -168,10 +172,10 @@ echo ""
 echo "Installation instructions:"
 echo ""
 echo "  For Fedora/RHEL/CentOS:"
-echo "    sudo dnf install ./${PACKAGE_NAME}-${VERSION}-${RELEASE}.noarch.rpm"
+echo "    sudo dnf install ./${PACKAGE_NAME}-${VERSION}-${RELEASE}.*.rpm"
 echo ""
 echo "  Or with rpm:"
-echo "    sudo rpm -ivh ./${PACKAGE_NAME}-${VERSION}-${RELEASE}.noarch.rpm"
+echo "    sudo rpm -ivh ./${PACKAGE_NAME}-${VERSION}-${RELEASE}.*.rpm"
 echo ""
 echo "IMPORTANT: After installation, update the configuration file:"
 echo "  sudo nano /etc/go-e-sma-homewizard-controller/go-e-sma-homewizard-controller.conf"

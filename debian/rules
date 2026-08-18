@@ -7,16 +7,14 @@ export DH_VERBOSE = 1
 	dh $@
 
 override_dh_auto_build:
-	# No build step needed for bash script
+	go build -o go-e-sma-homewizard-controller go-e-sma-homewizard-controller.go nighttime_basic.go
 
 override_dh_auto_test:
-	# Validate bash syntax
-	bash -n go-e-sma-homewizard-controller.sh
+	go vet go-e-sma-homewizard-controller.go nighttime_basic.go
 
 override_dh_auto_install:
-	# Install script
 	mkdir -p debian/go-e-sma-homewizard-controller/usr/bin
-	install -m 0755 go-e-sma-homewizard-controller.sh debian/go-e-sma-homewizard-controller/usr/bin/go-e-sma-homewizard-controller
+	install -m 0755 go-e-sma-homewizard-controller debian/go-e-sma-homewizard-controller/usr/bin/go-e-sma-homewizard-controller
 	
 	# Install config template
 	mkdir -p debian/go-e-sma-homewizard-controller/etc/go-e-sma-homewizard-controller
