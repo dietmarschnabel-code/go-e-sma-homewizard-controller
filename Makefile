@@ -72,7 +72,7 @@ uninstall:
 
 deb: check-deps
 	@echo "Building Debian package..."
-	@dpkg-buildpackage -us -uc -b 2>&1 | grep -v "^dpkg-buildpackage: info:"
+	@dpkg-buildpackage -us -uc -b
 	@echo "✓ Debian package built successfully"
 	@echo ""
 	@echo "To install the package:"

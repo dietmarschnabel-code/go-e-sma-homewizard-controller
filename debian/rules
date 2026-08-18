@@ -12,6 +12,9 @@ override_dh_auto_build:
 override_dh_auto_test:
 	go vet go-e-sma-homewizard-controller.go nighttime_basic.go
 
+override_dh_dwz:
+	# Go binaries contain compressed DWARF sections unsupported by dwz.
+
 override_dh_auto_install:
 	mkdir -p debian/go-e-sma-homewizard-controller/usr/bin
 	install -m 0755 go-e-sma-homewizard-controller debian/go-e-sma-homewizard-controller/usr/bin/go-e-sma-homewizard-controller
