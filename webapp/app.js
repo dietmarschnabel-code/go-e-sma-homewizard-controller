@@ -322,10 +322,6 @@ async function updateSystemStatusData() {
         fetchPVDailyData(now)
     ]);
 
-    // Temporary Debug Logs
-    console.log("Raw PV Data Array:", pvData);
-    console.log("Latest PV Record:", pvData.length > 0 ? pvData[pvData.length - 1] : "ARRAY IS EMPTY");
-
     // Extract the latest reading from today's CSV files
     const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
     const latestPV = pvData.length > 0 ? pvData[pvData.length - 1] : null;
