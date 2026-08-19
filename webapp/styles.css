@@ -1,0 +1,263 @@
+/* =========================================
+   Base Variables & Dark Theme
+   ========================================= */
+:root {
+    --bg-main: #0f172a;
+    --bg-card: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --pv-orange: #f59e0b;
+    --import-red: #ef4444;
+    --export-green: #10b981;
+    --border-color: #334155;
+    --font-family: 'Century Gothic', system-ui, -apple-system, sans-serif;
+}
+
+/* =========================================
+   Global Reset
+   ========================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: var(--font-family);
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* =========================================
+   Layout & Header
+   ========================================= */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-header h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+/* Controls */
+.header-controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.view-toggle {
+    display: flex;
+    background-color: var(--bg-card);
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.toggle-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    color: var(--text-main);
+}
+
+.toggle-btn.active {
+    background-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.date-picker-container {
+    display: flex;
+    align-items: center;
+    height: 38px;
+}
+
+.picker-input {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: inherit;
+    color-scheme: dark; /* Adapts native date pickers to dark mode */
+    width: 160px;
+}
+
+.picker-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* =========================================
+   KPI Cards Grid
+   ========================================= */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.card {
+    background-color: var(--bg-card);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.card h3 {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.status-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* =========================================
+   Chart Section
+   ========================================= */
+.chart-section {
+    padding: 24px;
+}
+
+.chart-container {
+    position: relative;
+    height: 440px;
+    width: 100%;
+}
+
+/* =========================================
+   Mobile Responsiveness & Touch Optimization
+   ========================================= */
+@media (max-width: 768px) {
+    html, body {
+        padding: 12px 10px; /* Reduce padding to save screen space */
+    }
+
+    /* Stack header and controls vertically */
+    .dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.4rem;
+        text-align: center;
+    }
+
+    .header-controls {
+        flex-direction: column;
+        height: auto;
+        gap: 16px;
+    }
+
+    /* Make view toggle full width and bigger for thumbs */
+    .view-toggle {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .toggle-btn {
+        flex: 1; /* Distributes button width equally */
+        padding: 12px 10px; /* Larger tap targets */
+        font-size: 0.95rem;
+    }
+
+    /* Enlarge the date pickers */
+    .date-picker-container {
+        width: 100%;
+        max-width: 320px;
+        margin: 0 auto;
+        height: 46px; 
+    }
+
+    .picker-input {
+        /* 16px (1rem) minimum prevents iOS Safari from auto-zooming */
+        font-size: 1rem; 
+        width: 100%;
+        height: 100%;
+    }
+
+    /* KPI Grid - Force 2 columns on tablets */
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .card {
+        padding: 16px 14px;
+    }
+
+    .metric-value {
+        font-size: 1.6rem;
+    }
+
+    .card h3 {
+        font-size: 0.75rem;
+    }
+
+    /* Chart Area Scaling */
+    .chart-section {
+        padding: 16px 12px;
+    }
+
+    .chart-container {
+        height: 320px; /* Fits better on mobile screens */
+    }
+}
+
+/* For very narrow phones, stack KPI cards into a single column */
+@media (max-width: 480px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .metric-value {
+        font-size: 1.9rem;
+    }
+}

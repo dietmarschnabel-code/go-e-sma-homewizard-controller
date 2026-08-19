@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title data-i18n="title">Solar Energy Dashboard</title> <!--[cite: 6] -->
+    
+    <!-- PWA Manifest & Full-Screen Settings -->
+    <link rel="manifest" href="manifest.json"> <!--[cite: 6] -->
+    <meta name="theme-color" content="#000000"> <!--[cite: 6] -->
+    
+    <!-- iOS / Safari Full-Screen Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes"> <!--[cite: 6] -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <!--[cite: 6] -->
+    <meta name="apple-mobile-web-app-title" content="SolarDash"> <!--[cite: 6] -->
+
+    <link rel="stylesheet" href="styles.css"> <!--[cite: 6] -->
+    <link rel="shortcut icon" href="/pv/favicon.ico" type="image/x-icon" /> <!--[cite: 6] -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!--[cite: 6] -->
+</head>
+<body>
+
+    <div class="dashboard-container"> <!--[cite: 6] -->
+        <!-- Header & Controls -->
+        <header class="dashboard-header"> <!--[cite: 6] -->
+            <h1 data-i18n="title">Solar Energy Dashboard</h1> <!--[cite: 6] -->
+            
+            <div class="header-controls"> <!--[cite: 6] -->
+                <div class="view-toggle"> <!--[cite: 6] -->
+                    <button id="btn-daily" class="toggle-btn active" onclick="switchView('daily')" data-i18n="daily">Daily</button> <!--[cite: 6] -->
+                    <button id="btn-monthly" class="toggle-btn" onclick="switchView('monthly')" data-i18n="monthly">Monthly</button> <!--[cite: 6] -->
+                    <button id="btn-yearly" class="toggle-btn" onclick="switchView('yearly')" data-i18n="yearly">Yearly</button> <!--[cite: 6] -->
+                </div>
+                
+                <div class="date-picker-container"> <!--[cite: 6] -->
+                    <input type="date" id="date-select" class="picker-input"> <!--[cite: 6] -->
+                    <input type="month" id="month-select" class="picker-input hidden"> <!--[cite: 6] -->
+                    <select id="year-select" class="picker-input hidden"></select> <!--[cite: 6] -->
+                </div>
+            </div>
+        </header>
+
+        <!-- KPI Cards Grid -->
+        <div class="kpi-grid"> <!--[cite: 6] -->
+            <div class="card"> <!--[cite: 6] -->
+                <h3 id="kpi-pv-title" data-i18n="pvGen">PV Generation</h3> <!--[cite: 6] -->
+                <p id="pv-metric" class="metric-value">0 W</p> <!--[cite: 6] -->
+            </div>
+            
+            <div class="card"> <!--[cite: 6] -->
+                <h3 id="kpi-grid-title" data-i18n="gridPower">Grid Active Power</h3> <!--[cite: 6] -->
+                <p id="grid-metric" class="metric-value">0 W</p> <!--[cite: 6] -->
+                <p id="grid-status" class="status-text" data-i18n="loading">Loading...</p> <!--[cite: 6] -->
+            </div>
+            
+            <div class="card"> <!--[cite: 6] -->
+                <h3 id="kpi-import-title" data-i18n="importToday">Import Today</h3> <!--[cite: 6] -->
+                <p id="import-metric" class="metric-value">0.0 kWh</p> <!--[cite: 6] -->
+            </div>
+            
+            <div class="card"> <!--[cite: 6] -->
+                <h3 id="kpi-export-title" data-i18n="exportToday">Export Today</h3> <!--[cite: 6] -->
+                <p id="export-metric" class="metric-value">0.0 kWh</p> <!--[cite: 6] -->
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="chart-section card"> <!--[cite: 6] -->
+            <div class="chart-container"> <!--[cite: 6] -->
+                <canvas id="energyChart"></canvas> <!--[cite: 6] -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Internationalization Script (Loaded First) -->
+    <script src="i18n.js"></script>
+    
+    <!-- DATA SCRIPTS -->
+    <script src="pv.js"></script> <!--[cite: 6] -->
+    <script src="p1.js"></script> <!--[cite: 6] -->
+    
+    <!-- App Logic -->
+    <script src="app.js"></script> <!--[cite: 6] -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+        .then(() => console.log('Service Worker Registered'))
+       .catch(err => console.error('SW Error:', err));
+    }
+    </script> <!--[cite: 6] -->
+</body>
+</html>
