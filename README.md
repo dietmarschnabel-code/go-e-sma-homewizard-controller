@@ -12,6 +12,9 @@ This can be easily done with google ai search help.
 
 Then you just need to start the script. (you might test with bash -x) I am also planning to release a debian package which includes startup file and more configuration files. This should be also able to run on a rasperry pi environment. (but i run it on a laptop with ubuntu 26.04)
 
+The static energy dashboard and its CSV directory layout are described in
+[WEBAPP.md](WEBAPP.md).
+
 ## Windows + Linux alternate solution
 
 A dedicated Windows guide is available in [WINDOWS.md](WINDOWS.md).

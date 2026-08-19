@@ -73,7 +73,7 @@ function parsePVMonthlyCSV(csvText) {
 
 async function fetchPVDailyData(date) {
     const dateStr = formatDateYYYYMMDD(date);
-    const paths = [`/pv/pv_data-${dateStr}.csv`, `/pv/pv_data-${dateStr}.csv`, `/pv/pv-data-${dateStr}.csv`];
+    const paths = [`/pv/pv_data-${dateStr}.csv`, `/pv/pv-data-${dateStr}.csv`];
 
     for (const path of paths) {
         try {
