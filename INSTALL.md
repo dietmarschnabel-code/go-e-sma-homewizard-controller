@@ -292,6 +292,7 @@ sudo systemctl start go-e-sma-homewizard-controller
 
 ### Permissions issues due to systemd settings:
 
+```bash
 # Override default home directory restrictions to allow read access
 ProtectHome=read-only
 # Explicitly grant read-only access to the exact file path
@@ -300,6 +301,7 @@ ReadOnlyPaths=/home/username/sma-bluetooth/tmp/sma-update.log
 BindReadOnlyPaths=/home/username/sma-bluetooth/tmp/sma-update.log
 # allow writing of csv files
 ReadWritePaths=/var/www/html/p1
+```
 
 
 ### Updating the Debian package:
