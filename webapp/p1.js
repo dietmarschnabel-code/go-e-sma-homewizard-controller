@@ -53,7 +53,7 @@ function parseP1MonthlyCSV(csvText) {
 
 async function fetchP1DailyData(date) {
     const dateStr = formatDateYYYYMMDD(date);
-    const paths = [`/p1/p1_data-${dateStr}.csv`, `/p1/p1-data-${dateStr}.csv`];
+    const paths = [`/p1/p1-data-${dateStr}.csv`, `/p1/p1_data-${dateStr}.csv`];
 
     for (const path of paths) {
         try {
@@ -67,7 +67,7 @@ async function fetchP1DailyData(date) {
 async function fetchP1MonthlyData(year, month) {
     const dateObj = new Date(year, month - 1, 1);
     const yyyymm = formatDateYYYYMM(dateObj);
-    const paths = [`/p1/p1_data-${yyyymm}.csv`, `/p1/p1-data-${yyyymm}.csv`, `/p1/${year}/p1-data-${yyyymm}.csv`];
+    const paths = [`/p1/p1-data-${yyyymm}.csv`, `/p1/p1_data-${yyyymm}.csv`, `/p1/${year}/p1-data-${yyyymm}.csv`];
 
     for (const path of paths) {
         try {

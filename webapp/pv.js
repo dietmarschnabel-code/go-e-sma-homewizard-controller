@@ -29,14 +29,18 @@ function parsePVDailyCSV(csvText) {
         const parts = line.split(';');
         if (parts.length >= 3) {
             const rawDateTime = parts[0].trim(); // "17.08.2026 00:00:00"
-            const kwStr = parts[2].trim().replace(',', '.');
+            const totalKWhStr = parts[1].trim().replace(',', '.'); // Column 2: Cumulative Yield
+            const kwStr = parts[2].trim().replace(',', '.');       // Column 3: Instantaneous Power (kW)
+
+            const totalKWh = parseFloat(totalKWhStr);
             const powerKW = parseFloat(kwStr);
 
             if (!isNaN(powerKW)) {
                 const timeOnly = rawDateTime.split(' ')[1] ? rawDateTime.split(' ')[1].substring(0, 5) : rawDateTime;
                 records.push({
                     timeOnly: timeOnly,
-                    pv_power_w: Math.round(powerKW * 1000)
+                    pv_power_w: Math.round(powerKW * 1000),
+                    pv_total_kwh: !isNaN(totalKWh) ? totalKWh : 0
                 });
             }
         }

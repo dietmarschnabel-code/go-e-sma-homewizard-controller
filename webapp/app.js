@@ -1,6 +1,9 @@
 let currentView = 'daily'; // 'daily', 'monthly', 'yearly'
 let chartInstance = null;
 
+// Target Start Date of PV System (Year, Month - 1, Day)
+const SYSTEM_START_DATE = new Date(2011, 8, 27); 
+
 // Parse date input string "YYYY-MM-DD" safely without UTC timezone shifts
 function parseLocalDate(dateString) {
     if (!dateString) return new Date();
@@ -26,7 +29,7 @@ function switchView(viewMode) {
     currentView = viewMode;
 
     // Toggle button active states
-    document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.view-toggle .toggle-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById(`btn-${viewMode}`).classList.add('active');
 
     // Toggle date pickers
@@ -285,9 +288,62 @@ function drawChart(labels, datasets, yAxisTitle) {
     });
 }
 
+// --- STATUS MODAL LOGIC ---
+async function toggleStatusModal() {
+    const modal = document.getElementById('status-modal');
+    modal.classList.toggle('hidden');
+    
+    if (!modal.classList.contains('hidden')) {
+        await updateSystemStatusData();
+    }
+}
+
+function startStatusClock() {
+    const clockEl = document.getElementById('status-clock');
+    const updateTime = () => {
+        const now = new Date();
+        clockEl.textContent = now.toLocaleTimeString();
+    };
+    updateTime();
+    setInterval(updateTime, 1000);
+}
+
+async function updateSystemStatusData() {
+    const now = new Date();
+    
+    // Operating days calculation
+    const diffTime = Math.abs(now - SYSTEM_START_DATE);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    document.getElementById('status-days').textContent = `${diffDays} ${t('daysUnit')}`;
+
+    // Fetch today's daily export data directly
+    const [p1Data, pvData] = await Promise.all([
+        fetchP1DailyData(now),
+        fetchPVDailyData(now)
+    ]);
+
+    // Temporary Debug Logs
+    console.log("Raw PV Data Array:", pvData);
+    console.log("Latest PV Record:", pvData.length > 0 ? pvData[pvData.length - 1] : "ARRAY IS EMPTY");
+
+    // Extract the latest reading from today's CSV files
+    const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
+    const latestPV = pvData.length > 0 ? pvData[pvData.length - 1] : null;
+
+    // Read cumulative totals directly from meter readings
+    const grandTotalImport = latestP1 ? latestP1.import_kwh : 0;
+    const grandTotalExport = latestP1 ? latestP1.export_kwh : 0;
+    const grandTotalPV = latestPV ? (latestPV.pv_total_kwh || latestPV.total_kwh || 0) : 0;
+
+    document.getElementById('status-pv-total').textContent = `${Math.round(grandTotalPV).toLocaleString()} kWh`;
+    document.getElementById('status-import-total').textContent = `${Math.round(grandTotalImport).toLocaleString()} kWh`;
+    document.getElementById('status-export-total').textContent = `${Math.round(grandTotalExport).toLocaleString()} kWh`;
+}
+
 // Initialization & Event Binding
 document.addEventListener('DOMContentLoaded', () => {
     initYearSelector();
+    startStatusClock();
 
     const datePicker = document.getElementById('date-select');
     const monthPicker = document.getElementById('month-select');

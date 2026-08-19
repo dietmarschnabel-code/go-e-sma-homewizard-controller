@@ -32,6 +32,16 @@ const translations = {
         balanced: "Balanced",
         usedLocally: "kWh used locally",
 
+        // Status Modal Labels
+        systemStatusBtn: "Status",
+        systemStatus: "System Status",
+        localTime: "Local Time:",
+        operatingDays: "System Uptime:",
+        totalPvGen: "Total PV Generation:",
+        totalImport: "Total Grid Import:",
+        totalExport: "Total Grid Export:",
+        daysUnit: "days",
+
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV Generation (W)",
         gridPowerLabelW: "Grid Active Power (W)",
@@ -76,6 +86,16 @@ const translations = {
         exportingToGrid: "Netzeinspeisung",
         balanced: "Ausgeglichen",
         usedLocally: "kWh eigenverbraucht",
+
+        // Status Modal Labels
+        systemStatusBtn: "Status",
+        systemStatus: "Systemstatus",
+        localTime: "Lokale Uhrzeit:",
+        operatingDays: "Laufzeit Anlage:",
+        totalPvGen: "Gesamterzeugung PV:",
+        totalImport: "Gesamt Netzbezug:",
+        totalExport: "Gesamt Einspeisung:",
+        daysUnit: "Tage",
 
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV-Erzeugung (W)",
