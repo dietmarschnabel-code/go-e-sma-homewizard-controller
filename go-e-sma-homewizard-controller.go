@@ -272,7 +272,8 @@ func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, cha
 	defer writer.Flush()
 
 	if !fileExists {
-		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "charger_total_kwh", "active_power_w", "charger_power_w"})
+		// Preserves original 4 columns first, then appends charger total energy and power
+		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w", "charger_total_kwh", "charger_power_w"})
 	}
 
 	timestamp := now.Truncate(time.Minute).Format("2006-01-02 15:04:05")
@@ -280,15 +281,15 @@ func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, cha
 		timestamp,
 		strconv.FormatFloat(data.TotalPowerImportKWh, 'f', 3, 64),
 		strconv.FormatFloat(data.TotalPowerExportKWh, 'f', 3, 64),
-		strconv.FormatFloat(chargerTotalKWh, 'f', 3, 64),
 		strconv.FormatFloat(data.ActivePowerW, 'f', 0, 64),
+		strconv.FormatFloat(chargerTotalKWh, 'f', 3, 64),
 		strconv.Itoa(chargerPowerW),
 	}
 
 	if err := writer.Write(record); err != nil {
 		debugLog(cfg, "[P1 CSV] Failed to write daily CSV row to %s: %v", targetPath, err)
 	} else {
-		debugLog(cfg, "[P1 CSV] Recorded reading in %s at %s (%dW active)", targetPath, timestamp, chargerPowerW)
+		debugLog(cfg, "[P1 CSV] Recorded reading in %s at %s (%dW charger power)", targetPath, timestamp, chargerPowerW)
 	}
 }
 
@@ -306,8 +307,9 @@ func getStartOfDayReadings(dailyPath string) (float64, float64, float64, error) 
 		return 0, 0, 0, fmt.Errorf("insufficient records in daily CSV %s", dailyPath)
 	}
 
+	header := records[0]
 	firstRow := records[1]
-	if len(firstRow) < 4 {
+	if len(firstRow) < 3 {
 		return 0, 0, 0, fmt.Errorf("malformed row in daily CSV %s", dailyPath)
 	}
 
@@ -315,9 +317,19 @@ func getStartOfDayReadings(dailyPath string) (float64, float64, float64, error) 
 	exp, err2 := strconv.ParseFloat(firstRow[2], 64)
 
 	var chg float64
-	// Parse charger_total_kwh from index 3 (or index 5/4 if using old formats)
-	if len(firstRow) >= 4 {
-		chg, _ = strconv.ParseFloat(firstRow[3], 64)
+	chargerColIdx := -1
+	for idx, colName := range header {
+		if colName == "charger_total_kwh" {
+			chargerColIdx = idx
+			break
+		}
+	}
+
+	if chargerColIdx != -1 && len(firstRow) > chargerColIdx {
+		chg, _ = strconv.ParseFloat(firstRow[chargerColIdx], 64)
+	} else if len(firstRow) >= 5 {
+		// Fallback for previous intermediate schemas
+		chg, _ = strconv.ParseFloat(firstRow[4], 64)
 	}
 
 	if err1 != nil || err2 != nil {
