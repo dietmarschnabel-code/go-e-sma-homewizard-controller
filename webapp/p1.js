@@ -11,7 +11,7 @@ function parseP1DailyCSV(csvText) {
         const line = lines[i].trim();
         if (!line || line.startsWith('timestamp')) continue;
 
-        const [timestamp, importKWh, exportKWh, activePowerW] = line.split(',');
+        const [timestamp, importKWh, exportKWh, activePowerW, chargerTotalKWh, chargerPowerW] = line.split(',');
 
         if (timestamp) {
             const timeOnly = timestamp.split(' ')[1] ? timestamp.split(' ')[1].substring(0, 5) : timestamp;
@@ -20,7 +20,9 @@ function parseP1DailyCSV(csvText) {
                 timeOnly: timeOnly,
                 import_kwh: parseFloat(importKWh) || 0,
                 export_kwh: parseFloat(exportKWh) || 0,
-                active_power_w: parseFloat(activePowerW) || 0
+                active_power_w: parseFloat(activePowerW) || 0,
+                charger_total_kwh: parseFloat(chargerTotalKWh) || 0,
+                charger_power_w: parseFloat(chargerPowerW) || 0
             });
         }
     }
@@ -29,7 +31,7 @@ function parseP1DailyCSV(csvText) {
 
 function parseP1MonthlyCSV(csvText) {
     const lines = csvText.trim().split('\n');
-    const dailyTotals = {}; // dayNum -> { import_kwh, export_kwh }
+    const dailyTotals = {}; // dayNum -> { import_kwh, export_kwh, charger_kwh }
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -40,11 +42,12 @@ function parseP1MonthlyCSV(csvText) {
             const dateStr = parts[0].trim();
             const imp = parseFloat(parts[1]) || 0;
             const exp = parseFloat(parts[2]) || 0;
+            const chg = parseFloat(parts[3]) || 0;
 
             const dayMatch = dateStr.match(/\d{4}-\d{2}-(\d{2})/);
             if (dayMatch) {
                 const dayNum = parseInt(dayMatch[1], 10);
-                dailyTotals[dayNum] = { import_kwh: imp, export_kwh: exp };
+                dailyTotals[dayNum] = { import_kwh: imp, export_kwh: exp, charger_kwh: chg };
             }
         }
     }
@@ -90,7 +93,8 @@ async function fetchP1MonthlyData(year, month) {
                     const last = readings[readings.length - 1];
                     result[day] = {
                         import_kwh: Math.max(0, last.import_kwh - first.import_kwh),
-                        export_kwh: Math.max(0, last.export_kwh - first.export_kwh)
+                        export_kwh: Math.max(0, last.export_kwh - first.export_kwh),
+                        charger_kwh: Math.max(0, (last.charger_total_kwh || 0) - (first.charger_total_kwh || 0))
                     };
                 }
             })
