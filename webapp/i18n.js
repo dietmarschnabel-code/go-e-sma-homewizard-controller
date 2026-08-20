@@ -14,6 +14,7 @@ const translations = {
         loading: "Loading...",
         importToday: "Import Today",
         exportToday: "Export Today",
+        chargerToday: "EV Charged Today",
         
         // Dynamic KPI Card Titles
         pvGenToday: "PV Generation (Today)",
@@ -25,6 +26,8 @@ const translations = {
         exportMonth: "Export (Month)",
         importYear: "Import (Year)",
         exportYear: "Export (Year)",
+        chargerMonth: "EV Charged (Month)",
+        chargerYear: "EV Charged (Year)",
 
         // Grid & Status Indicators
         importingFromGrid: "Importing from Grid",
@@ -40,14 +43,17 @@ const translations = {
         totalPvGen: "Total PV Generation:",
         totalImport: "Total Grid Import:",
         totalExport: "Total Grid Export:",
+        totalCharger: "Total EV Charged:",
         daysUnit: "days",
 
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV Generation (W)",
         gridPowerLabelW: "Grid Active Power (W)",
+        chargerPowerLabelW: "EV Charger Power (W)",
         pvGenLabelKwh: "PV Generation (kWh)",
         importLabelKwh: "Grid Import (kWh)",
         exportLabelKwh: "Grid Export (kWh)",
+        chargerLabelKwh: "EV Charged (kWh)",
         unitWatts: "Watts (W)",
         unitKwhPerDay: "kWh / day",
         unitKwhPerMonth: "kWh / month",
@@ -69,6 +75,7 @@ const translations = {
         loading: "Laden...",
         importToday: "Netzbezug heute",
         exportToday: "Einspeisung heute",
+        chargerToday: "E-Auto geladen heute",
 
         // Dynamic KPI Card Titles
         pvGenToday: "PV-Erzeugung (Heute)",
@@ -80,6 +87,8 @@ const translations = {
         exportMonth: "Einspeisung (Monat)",
         importYear: "Netzbezug (Jahr)",
         exportYear: "Einspeisung (Jahr)",
+        chargerMonth: "E-Auto geladen (Monat)",
+        chargerYear: "E-Auto geladen (Jahr)",
 
         // Grid & Status Indicators
         importingFromGrid: "Netzbezug",
@@ -95,14 +104,17 @@ const translations = {
         totalPvGen: "Gesamterzeugung PV:",
         totalImport: "Gesamt Netzbezug:",
         totalExport: "Gesamt Einspeisung:",
+        totalCharger: "Gesamt E-Auto Geladen:",
         daysUnit: "Tage",
 
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV-Erzeugung (W)",
         gridPowerLabelW: "Netz-Wirkleistung (W)",
+        chargerPowerLabelW: "E-Auto Ladeleistung (W)",
         pvGenLabelKwh: "PV-Erzeugung (kWh)",
         importLabelKwh: "Netzbezug (kWh)",
         exportLabelKwh: "Einspeisung (kWh)",
+        chargerLabelKwh: "E-Auto geladen (kWh)",
         unitWatts: "Watt (W)",
         unitKwhPerDay: "kWh / Tag",
         unitKwhPerMonth: "kWh / Monat",
