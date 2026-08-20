@@ -604,7 +604,7 @@ func main() {
 		case <-ticker.C:
 			if loopCounter%PVUpdateIntervalS == 0 {
 				pvPowerW = readPVPower(cfg)
-				if cfg.SMALogPath == "" {
+				if cfg.SMALogPath != "" {
 					debugLog(cfg, "Updated PV power: %dW", pvPowerW)
 				}
 			}
