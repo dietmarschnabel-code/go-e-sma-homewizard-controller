@@ -396,7 +396,7 @@ func logP1ToCSV(cfg Config) {
 			chargerPowerW = int(status.Nrg[11])
 		}
 		if status.Eto != nil {
-			chargerTotalKWh = *status.Eto / 10.0
+			chargerTotalKWh = *status.Eto / 1000.0
 		}
 	} else {
 		debugLog(cfg, "[P1 CSV] Failed to query charger status: %v", err)
