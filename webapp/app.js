@@ -78,6 +78,7 @@ async function renderDailyView() {
     document.getElementById('kpi-grid-title').textContent = t('gridActivePower');
     document.getElementById('kpi-import-title').textContent = t('importToday');
     document.getElementById('kpi-export-title').textContent = t('exportToday');
+    document.getElementById('kpi-charger-title').textContent = t('chargerToday');
 
     // 1. PV Generation (Daily Total in kWh)
     const dailyPVTotal = pvMonthly[day] || 0;
@@ -97,25 +98,30 @@ async function renderDailyView() {
     // Translated Grid Status
     statusEl.textContent = gridPower > 0 ? t('importingFromGrid') : (gridPower < 0 ? t('exportingToGrid') : t('balanced'));
 
-    // 3. Import & Export (Daily Totals)
+    // 3. Import, Export & EV Charger (Daily Totals)
     const importToday = (latestP1 && firstP1) ? Math.max(0, latestP1.import_kwh - firstP1.import_kwh) : 0;
     const exportToday = (latestP1 && firstP1) ? Math.max(0, latestP1.export_kwh - firstP1.export_kwh) : 0;
+    const chargerToday = (latestP1 && firstP1) ? Math.max(0, (latestP1.charger_total_kwh || 0) - (firstP1.charger_total_kwh || 0)) : 0;
+
     document.getElementById('import-metric').textContent = `${importToday.toFixed(1)} kWh`;
     document.getElementById('export-metric').textContent = `${exportToday.toFixed(1)} kWh`;
+    document.getElementById('charger-metric').textContent = `${chargerToday.toFixed(1)} kWh`;
 
     // Render Line Chart
     const timeMap = new Map();
-    pvData.forEach(d => timeMap.set(d.timeOnly, { pv: d.pv_power_w, grid: null }));
+    pvData.forEach(d => timeMap.set(d.timeOnly, { pv: d.pv_power_w, grid: null, charger: null }));
     p1Data.forEach(d => {
-        const existing = timeMap.get(d.timeOnly) || { pv: null, grid: null };
+        const existing = timeMap.get(d.timeOnly) || { pv: null, grid: null, charger: null };
         existing.grid = d.active_power_w;
+        existing.charger = d.charger_power_w;
         timeMap.set(d.timeOnly, existing);
     });
 
     const labels = Array.from(timeMap.keys()).sort();
     drawChart(labels, [
         { label: t('pvGenLabelW'), data: labels.map(t => timeMap.get(t).pv), borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.15)', type: 'line', fill: true, tension: 0.2 },
-        { label: t('gridPowerLabelW'), data: labels.map(t => timeMap.get(t).grid), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.15)', type: 'line', fill: false, tension: 0.2 }
+        { label: t('gridPowerLabelW'), data: labels.map(t => timeMap.get(t).grid), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.15)', type: 'line', fill: false, tension: 0.2 },
+        { label: t('chargerPowerLabelW'), data: labels.map(t => timeMap.get(t).charger), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.15)', type: 'line', fill: false, tension: 0.2 }
     ], t('unitWatts'));
 }
 
@@ -136,21 +142,24 @@ async function renderMonthlyView() {
     const pvSeries = [];
     const importSeries = [];
     const exportSeries = [];
+    const chargerSeries = [];
 
-    let totalPV = 0, totalImport = 0, totalExport = 0;
+    let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
         labels.push(`${day}`);
         const pv = pvMonthly[day] || 0;
-        const p1 = p1Monthly[day] || { import_kwh: 0, export_kwh: 0 };
+        const p1 = p1Monthly[day] || { import_kwh: 0, export_kwh: 0, charger_kwh: 0 };
 
         pvSeries.push(pv);
         importSeries.push(p1.import_kwh);
         exportSeries.push(p1.export_kwh);
+        chargerSeries.push(p1.charger_kwh);
 
         totalPV += pv;
         totalImport += p1.import_kwh;
         totalExport += p1.export_kwh;
+        totalCharger += p1.charger_kwh;
     }
 
     // Update KPI Card Headers using i18n
@@ -158,10 +167,12 @@ async function renderMonthlyView() {
     document.getElementById('kpi-grid-title').textContent = t('selfConsumptionRate');
     document.getElementById('kpi-import-title').textContent = t('importMonth');
     document.getElementById('kpi-export-title').textContent = t('exportMonth');
+    document.getElementById('kpi-charger-title').textContent = t('chargerMonth');
 
     document.getElementById('pv-metric').textContent = `${totalPV.toFixed(1)} kWh`;
     document.getElementById('import-metric').textContent = `${totalImport.toFixed(1)} kWh`;
     document.getElementById('export-metric').textContent = `${totalExport.toFixed(1)} kWh`;
+    document.getElementById('charger-metric').textContent = `${totalCharger.toFixed(1)} kWh`;
 
     const selfConsumed = Math.max(0, totalPV - totalExport);
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
@@ -174,7 +185,8 @@ async function renderMonthlyView() {
     drawChart(labels, [
         { label: t('pvGenLabelKwh'), data: pvSeries, backgroundColor: '#f59e0b', type: 'bar' },
         { label: t('importLabelKwh'), data: importSeries, backgroundColor: '#ef4444', type: 'bar' },
-        { label: t('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' }
+        { label: t('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' },
+        { label: t('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
     ], t('unitKwhPerDay'));
 }
 
@@ -198,25 +210,29 @@ async function renderYearlyView() {
     const pvSeries = [];
     const importSeries = [];
     const exportSeries = [];
+    const chargerSeries = [];
 
-    let totalPV = 0, totalImport = 0, totalExport = 0;
+    let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
 
     monthlyResults.forEach(([pvMonth, p1Month]) => {
-        let mPV = 0, mImport = 0, mExport = 0;
+        let mPV = 0, mImport = 0, mExport = 0, mCharger = 0;
 
         Object.values(pvMonth).forEach(val => mPV += val);
         Object.values(p1Month).forEach(val => {
             mImport += val.import_kwh;
             mExport += val.export_kwh;
+            mCharger += (val.charger_kwh || 0);
         });
 
         pvSeries.push(mPV);
         importSeries.push(mImport);
         exportSeries.push(mExport);
+        chargerSeries.push(mCharger);
 
         totalPV += mPV;
         totalImport += mImport;
         totalExport += mExport;
+        totalCharger += mCharger;
     });
 
     // Update KPI Card Headers using i18n
@@ -224,10 +240,12 @@ async function renderYearlyView() {
     document.getElementById('kpi-grid-title').textContent = t('selfConsumptionRate');
     document.getElementById('kpi-import-title').textContent = t('importYear');
     document.getElementById('kpi-export-title').textContent = t('exportYear');
+    document.getElementById('kpi-charger-title').textContent = t('chargerYear');
 
     document.getElementById('pv-metric').textContent = `${totalPV.toFixed(0)} kWh`;
     document.getElementById('import-metric').textContent = `${totalImport.toFixed(0)} kWh`;
     document.getElementById('export-metric').textContent = `${totalExport.toFixed(0)} kWh`;
+    document.getElementById('charger-metric').textContent = `${totalCharger.toFixed(0)} kWh`;
 
     const selfConsumed = Math.max(0, totalPV - totalExport);
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
@@ -240,7 +258,8 @@ async function renderYearlyView() {
     drawChart(monthNames, [
         { label: t('pvGenLabelKwh'), data: pvSeries, backgroundColor: '#f59e0b', type: 'bar' },
         { label: t('importLabelKwh'), data: importSeries, backgroundColor: '#ef4444', type: 'bar' },
-        { label: t('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' }
+        { label: t('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' },
+        { label: t('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
     ], t('unitKwhPerMonth'));
 }
 
@@ -330,10 +349,16 @@ async function updateSystemStatusData() {
     const grandTotalImport = latestP1 ? latestP1.import_kwh : 0;
     const grandTotalExport = latestP1 ? latestP1.export_kwh : 0;
     const grandTotalPV = latestPV ? (latestPV.pv_total_kwh || latestPV.total_kwh || 0) : 0;
+    const grandTotalCharger = latestP1 ? (latestP1.charger_total_kwh || 0) : 0;
 
     document.getElementById('status-pv-total').textContent = `${Math.round(grandTotalPV).toLocaleString()} kWh`;
     document.getElementById('status-import-total').textContent = `${Math.round(grandTotalImport).toLocaleString()} kWh`;
     document.getElementById('status-export-total').textContent = `${Math.round(grandTotalExport).toLocaleString()} kWh`;
+    
+    const statusChargerEl = document.getElementById('status-charger-total');
+    if (statusChargerEl) {
+        statusChargerEl.textContent = `${Math.round(grandTotalCharger).toLocaleString()} kWh`;
+    }
 }
 
 // Initialization & Event Binding
