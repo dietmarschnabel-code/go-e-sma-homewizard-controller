@@ -108,7 +108,7 @@ body {
     padding: 8px 12px;
     border-radius: 8px;
     font-family: inherit;
-    color-scheme: dark; /* Adapts native date pickers to dark mode */
+    color-scheme: dark;
     width: 160px;
 }
 
@@ -118,12 +118,12 @@ body {
 }
 
 /* =========================================
-   KPI Cards Grid
+   KPI Cards Grid (Supports 5 Cards)
    ========================================= */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
     margin-bottom: 24px;
 }
 
@@ -137,14 +137,14 @@ body {
 
 .card h3 {
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 12px;
 }
 
 .metric-value {
-    font-size: 2rem;
+    font-size: 1.8rem;
     font-weight: bold;
     margin-bottom: 4px;
 }
@@ -239,6 +239,12 @@ body {
 /* =========================================
    Mobile Responsiveness & Touch Optimization
    ========================================= */
+@media (max-width: 1024px) {
+    .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     html, body {
         padding: 12px 10px;
@@ -299,7 +305,7 @@ body {
     }
 
     .metric-value {
-        font-size: 1.6rem;
+        font-size: 1.5rem;
     }
 
     .card h3 {
@@ -321,6 +327,6 @@ body {
     }
     
     .metric-value {
-        font-size: 1.9rem;
+        font-size: 1.8rem;
     }
 }
