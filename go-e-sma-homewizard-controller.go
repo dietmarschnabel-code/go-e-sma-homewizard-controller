@@ -76,6 +76,7 @@ type ChargerStatus struct {
 	Lmo *int      `json:"lmo"`
 	Amp *int      `json:"amp"`
 	Nrg []float64 `json:"nrg"`
+	Eto *float64  `json:"eto"` // Lifetime charged energy in 0.1 kWh steps
 }
 
 // HomeWizardData maps the complete P1 meter API response
@@ -254,7 +255,7 @@ func getMonthlyCSVPath(basePath string, t time.Time) string {
 }
 
 // writeDailyCSVRow appends raw 5-minute interval data to the daily CSV file
-func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, cfg Config) {
+func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, chargerPowerW int, chargerTotalKWh float64, cfg Config) {
 	fileExists := true
 	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		fileExists = false
@@ -271,7 +272,7 @@ func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, cfg
 	defer writer.Flush()
 
 	if !fileExists {
-		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w"})
+		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w", "charger_power_w", "charger_total_kwh"})
 	}
 
 	timestamp := now.Truncate(time.Minute).Format("2006-01-02 15:04:05")
@@ -280,45 +281,55 @@ func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, cfg
 		strconv.FormatFloat(data.TotalPowerImportKWh, 'f', 3, 64),
 		strconv.FormatFloat(data.TotalPowerExportKWh, 'f', 3, 64),
 		strconv.FormatFloat(data.ActivePowerW, 'f', 0, 64),
+		strconv.Itoa(chargerPowerW),
+		strconv.FormatFloat(chargerTotalKWh, 'f', 1, 64),
 	}
 
 	if err := writer.Write(record); err != nil {
 		debugLog(cfg, "[P1 CSV] Failed to write daily CSV row to %s: %v", targetPath, err)
 	} else {
-		debugLog(cfg, "[P1 CSV] Recorded reading in %s at %s", targetPath, timestamp)
+		debugLog(cfg, "[P1 CSV] Recorded reading in %s at %s (%dW active)", targetPath, timestamp, chargerPowerW)
 	}
 }
 
-// getStartOfDayReadings fetches the first reading (e.g. 00:00) from today's daily CSV file
-func getStartOfDayReadings(dailyPath string) (float64, float64, error) {
+// getStartOfDayReadings fetches the first reading from today's daily CSV file
+func getStartOfDayReadings(dailyPath string) (float64, float64, float64, error) {
 	file, err := os.Open(dailyPath)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	records, err := reader.ReadAll()
 	if err != nil || len(records) < 2 {
-		return 0, 0, fmt.Errorf("insufficient records in daily CSV %s", dailyPath)
+		return 0, 0, 0, fmt.Errorf("insufficient records in daily CSV %s", dailyPath)
 	}
 
-	firstRow := records[1] // Row 0 is header, Row 1 is first reading of the day
+	firstRow := records[1]
 	if len(firstRow) < 3 {
-		return 0, 0, fmt.Errorf("malformed row in daily CSV %s", dailyPath)
+		return 0, 0, 0, fmt.Errorf("malformed row in daily CSV %s", dailyPath)
 	}
 
 	imp, err1 := strconv.ParseFloat(firstRow[1], 64)
 	exp, err2 := strconv.ParseFloat(firstRow[2], 64)
-	if err1 != nil || err2 != nil {
-		return 0, 0, fmt.Errorf("failed to parse start values in daily CSV %s", dailyPath)
+
+	var chg float64
+	if len(firstRow) >= 6 {
+		chg, _ = strconv.ParseFloat(firstRow[5], 64)
+	} else if len(firstRow) == 5 {
+		chg, _ = strconv.ParseFloat(firstRow[4], 64)
 	}
 
-	return imp, exp, nil
+	if err1 != nil || err2 != nil {
+		return 0, 0, 0, fmt.Errorf("failed to parse start values in daily CSV %s", dailyPath)
+	}
+
+	return imp, exp, chg, nil
 }
 
-// updateMonthlyCSV upserts a single daily delta row (date,import_kwh,export_kwh) for today in the monthly CSV
-func updateMonthlyCSV(monthlyPath string, dateStr string, importKWh, exportKWh float64, cfg Config) {
+// updateMonthlyCSV upserts a single daily delta row for today in the monthly CSV
+func updateMonthlyCSV(monthlyPath string, dateStr string, importKWh, exportKWh, chargerKWh float64, cfg Config) {
 	var records [][]string
 
 	if file, err := os.Open(monthlyPath); err == nil {
@@ -329,14 +340,14 @@ func updateMonthlyCSV(monthlyPath string, dateStr string, importKWh, exportKWh f
 		file.Close()
 	}
 
-	// Ensure header exists
 	if len(records) == 0 || len(records[0]) == 0 || records[0][0] != "date" {
-		records = append([][]string{{"date", "import_kwh", "export_kwh"}}, records...)
+		records = append([][]string{{"date", "import_kwh", "export_kwh", "charger_kwh"}}, records...)
 	}
 
 	impStr := strconv.FormatFloat(importKWh, 'f', 3, 64)
 	expStr := strconv.FormatFloat(exportKWh, 'f', 3, 64)
-	newRow := []string{dateStr, impStr, expStr}
+	chgStr := strconv.FormatFloat(chargerKWh, 'f', 1, 64)
+	newRow := []string{dateStr, impStr, expStr, chgStr}
 
 	updated := false
 	for i := 1; i < len(records); i++ {
@@ -362,7 +373,7 @@ func updateMonthlyCSV(monthlyPath string, dateStr string, importKWh, exportKWh f
 	if err := writer.WriteAll(records); err != nil {
 		debugLog(cfg, "[P1 CSV] Failed to write monthly CSV %s: %v", monthlyPath, err)
 	} else {
-		debugLog(cfg, "[P1 CSV] Updated monthly row in %s for %s: import=%s, export=%s", monthlyPath, dateStr, impStr, expStr)
+		debugLog(cfg, "[P1 CSV] Updated monthly row in %s for %s: import=%s, export=%s, charger=%s", monthlyPath, dateStr, impStr, expStr, chgStr)
 	}
 }
 
@@ -377,20 +388,35 @@ func logP1ToCSV(cfg Config) {
 		return
 	}
 
+	var chargerPowerW int
+	var chargerTotalKWh float64
+
+	if status, err := readChargerStatus(cfg); err == nil {
+		if len(status.Nrg) > 11 {
+			chargerPowerW = int(status.Nrg[11])
+		}
+		if status.Eto != nil {
+			chargerTotalKWh = *status.Eto / 10.0
+		}
+	} else {
+		debugLog(cfg, "[P1 CSV] Failed to query charger status: %v", err)
+	}
+
 	now := time.Now()
 	dailyPath := getDailyCSVPath(cfg.P1CSVPath, now)
 
 	// 1. Log raw reading to Daily CSV
-	writeDailyCSVRow(dailyPath, now, data, cfg)
+	writeDailyCSVRow(dailyPath, now, data, chargerPowerW, chargerTotalKWh, cfg)
 
 	// 2. Read baseline reading (start of day / 00:00)
-	startImport, startExport, err := getStartOfDayReadings(dailyPath)
+	startImport, startExport, startCharger, err := getStartOfDayReadings(dailyPath)
 	if err != nil {
 		startImport = data.TotalPowerImportKWh
 		startExport = data.TotalPowerExportKWh
+		startCharger = chargerTotalKWh
 	}
 
-	// Calculate net daily consumption & production so far
+	// Calculate net daily consumption, production, and charger energy so far
 	dailyImport := data.TotalPowerImportKWh - startImport
 	if dailyImport < 0 {
 		dailyImport = 0
@@ -399,11 +425,15 @@ func logP1ToCSV(cfg Config) {
 	if dailyExport < 0 {
 		dailyExport = 0
 	}
+	dailyCharger := chargerTotalKWh - startCharger
+	if dailyCharger < 0 {
+		dailyCharger = 0
+	}
 
 	// 3. Update single row for today in Monthly CSV
 	monthlyPath := getMonthlyCSVPath(cfg.P1CSVPath, now)
 	dateStr := now.Format("2006-01-02")
-	updateMonthlyCSV(monthlyPath, dateStr, dailyImport, dailyExport, cfg)
+	updateMonthlyCSV(monthlyPath, dateStr, dailyImport, dailyExport, dailyCharger, cfg)
 }
 
 func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
@@ -429,7 +459,7 @@ func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
 
 func readChargerStatus(cfg Config) (ChargerStatus, error) {
 	var status ChargerStatus
-	resp, err := httpClient.Get(fmt.Sprintf("http://%s/api/status?filter=lmo,amp,nrg", cfg.ChargerIP))
+	resp, err := httpClient.Get(fmt.Sprintf("http://%s/api/status?filter=lmo,amp,nrg,eto", cfg.ChargerIP))
 	if err != nil {
 		return status, err
 	}
