@@ -114,6 +114,9 @@ func loadLinuxConfig() {
 			os.Setenv(key, value)
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return
+	}
 }
 
 // initConfig parses flags and environment variables
@@ -202,6 +205,10 @@ func readPVPower(cfg Config) int {
 				}
 			}
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		debugLog(cfg, "Failed to read SMA log file (%v), retaining last valid power: %dW", err, pvPowerW)
+		return pvPowerW
 	}
 
 	if lastValidPower != "" {
