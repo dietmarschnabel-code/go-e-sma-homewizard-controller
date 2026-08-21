@@ -34,9 +34,11 @@
                 </div>
                 
                 <div class="date-picker-container">
+                    <button id="btn-prev-date" class="date-nav-btn" onclick="navigateDate(-1)" aria-label="Previous">&lsaquo;</button>
                     <input type="date" id="date-select" class="picker-input">
                     <input type="month" id="month-select" class="picker-input hidden">
                     <select id="year-select" class="picker-input hidden"></select>
+                    <button id="btn-next-date" class="date-nav-btn" onclick="navigateDate(1)" aria-label="Next">&rsaquo;</button>
                 </div>
             </div>
         </header>
