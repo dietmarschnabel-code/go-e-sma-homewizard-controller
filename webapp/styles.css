@@ -98,7 +98,35 @@ body {
 .date-picker-container {
     display: flex;
     align-items: center;
+    gap: 8px;
     height: 38px;
+}
+
+.date-nav-btn {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.date-nav-btn:hover {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.date-nav-btn:active {
+    transform: scale(0.95);
 }
 
 .picker-input {
