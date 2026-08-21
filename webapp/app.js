@@ -48,6 +48,41 @@ function switchView(viewMode) {
     updateDashboard();
 }
 
+// --- DATE NAVIGATION LOGIC ---
+function navigateDate(direction) {
+    if (currentView === 'daily') {
+        const datePicker = document.getElementById('date-select');
+        const currentDate = parseLocalDate(datePicker.value);
+        currentDate.setDate(currentDate.getDate() + direction);
+        
+        const yyyy = currentDate.getFullYear();
+        const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(currentDate.getDate()).padStart(2, '0');
+        datePicker.value = `${yyyy}-${mm}-${dd}`;
+    } else if (currentView === 'monthly') {
+        const monthPicker = document.getElementById('month-select');
+        const [yearStr, monthStr] = monthPicker.value.split('-');
+        let year = parseInt(yearStr, 10);
+        let month = parseInt(monthStr, 10) - 1 + direction;
+
+        const targetDate = new Date(year, month, 1);
+        const yyyy = targetDate.getFullYear();
+        const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+        monthPicker.value = `${yyyy}-${mm}`;
+    } else if (currentView === 'yearly') {
+        const yearPicker = document.getElementById('year-select');
+        const currentYear = parseInt(yearPicker.value, 10);
+        const targetYear = currentYear + direction;
+        
+        const optionExists = Array.from(yearPicker.options).some(opt => parseInt(opt.value, 10) === targetYear);
+        if (optionExists) {
+            yearPicker.value = targetYear;
+        }
+    }
+
+    updateDashboard();
+}
+
 async function updateDashboard() {
     if (currentView === 'daily') {
         await renderDailyView();
@@ -389,4 +424,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => { 
         if (currentView === 'daily') updateDashboard(); 
     }, 5 * 60 * 1000);
+});
+
+// Keyboard Navigation Support
+document.addEventListener('keydown', (e) => {
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+    if (e.key === 'ArrowLeft') {
+        navigateDate(-1);
+    } else if (e.key === 'ArrowRight') {
+        navigateDate(1);
+    }
 });
