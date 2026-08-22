@@ -18,25 +18,24 @@ go mod init go-e-sma-homewizard-controller
 GOOS=windows GOARCH=amd64 go build -o go-e-sma-homewizard-controller.exe .
 ```
 
-## Optinal sunset and sunrise calculation
+## Optional sunset and sunrise calculation
 
-you have to init utilization of this external functionality:
+You have to init utilization of this external functionality:
 
+```bat
 go mod init go-e-sma-homewizard-controller
-go get github.com/nathan-osman/go-sunrise
+go get [github.com/nathan-osman/go-sunrise](https://github.com/nathan-osman/go-sunrise)
 
 go build -tags solar -o go-e-sma-homewizard-controller.exe .
+```
 
 or
 
+```bash
 GOOS=windows GOARCH=amd64 go build -tags solar -o go-e-sma-homewizard-controller.exe .
+```
 
 can be used to include this calculation.
-
-go mod init go-e-sma-homewizard-controller
-go get github.com/nathan-osman/go-sunrise
-
-
 
 ## Command-line parameters
 
@@ -44,15 +43,19 @@ The program supports these flags:
 
 - `-charger`: go-e charger IP, default `192.168.1.50`
 - `-p1`: HomeWizard P1 meter IP, default `192.168.1.60`
+- `-p1-csv`: Base path to the output P1 CSV log file, default `p1_data.csv` (leave empty to disable)
 - `-sma-log`: SMA log file path, default `C:\temp\sma-update.log` (if set empty the system will skip PV Data reading and still forward to the Charger.)
 - `-max-power`: maximum allowed power in watts, default `10000`
 - `-margin`: safety margin in watts, default `300`
+- `-pv-phase-mode`: Phase mode during PV charging (`0` = auto/3-phase allowed, `1` = 1-phase forced), default `1`
+- `-lat`: Latitude coordinate for solar calculations (optional)
+- `-lng`: Longitude coordinate for solar calculations (optional)
 - `-debug`: enable debug logging
 
 Example:
 
 ```bat
-go-e-sma-homewizard-controller.exe -charger 192.168.1.50 -p1 192.168.1.60 -sma-log "C:\temp\sma-update.log" -max-power 10000 -margin 300 -debug
+go-e-sma-homewizard-controller.exe -charger 192.168.1.50 -p1 192.168.1.60 -sma-log "C:\temp\sma-update.log" -max-power 10000 -margin 300 -pv-phase-mode 1 -p1-csv "C:\temp\p1_data.csv" -debug
 ```
 
 ## Environment variable overrides
@@ -61,9 +64,13 @@ These environment variables are also read automatically if they are set:
 
 - `CHARGER_IP`
 - `P1_IP`
+- `P1_CSV_FILE`
 - `SMA_LOG_FILE`
 - `MAX_POWER_LIMIT_WATTS`
 - `SAFETY_MARGIN_WATTS`
+- `PV_PHASE_MODE`
+- `LATITUDE`
+- `LONGITUDE`
 
 Example in Command Prompt:
 
@@ -73,6 +80,8 @@ set P1_IP=192.168.1.60
 set SMA_LOG_FILE=C:\temp\sma-update.log
 set MAX_POWER_LIMIT_WATTS=10000
 set SAFETY_MARGIN_WATTS=300
+set PV_PHASE_MODE=1
+set P1_CSV_FILE=C:\temp\p1_data.csv
 go-e-sma-homewizard-controller.exe -debug
 ```
 
@@ -96,7 +105,7 @@ A common method is to use NSSM (Non-Sucking Service Manager).
 
 ```bat
 nssm install go-e-sma-homewizard-controller "C:\path\to\go-e-sma-homewizard-controller.exe"
-nssm set go-e-sma-homewizard-controller AppParameters "-charger 192.168.1.50 -p1 192.168.1.60 -sma-log \"C:\temp\sma-update.log\" -max-power 10000 -margin 300"
+nssm set go-e-sma-homewizard-controller AppParameters "-charger 192.168.1.50 -p1 192.168.1.60 -sma-log \"C:\temp\sma-update.log\" -max-power 10000 -margin 300 -pv-phase-mode 1 -p1-csv \"C:\temp\p1_data.csv\""
 nssm start go-e-sma-homewizard-controller
 ```
 
@@ -129,5 +138,7 @@ set P1_IP=192.168.1.60
 set SMA_LOG_FILE=C:\temp\sma-update.log
 set MAX_POWER_LIMIT_WATTS=10000
 set SAFETY_MARGIN_WATTS=300
+set PV_PHASE_MODE=1
+set P1_CSV_FILE=C:\temp\p1_data.csv
 "C:\path\to\go-e-sma-homewizard-controller.exe" -debug
 ```
