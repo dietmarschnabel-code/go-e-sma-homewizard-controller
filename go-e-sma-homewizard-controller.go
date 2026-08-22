@@ -75,6 +75,7 @@ var (
 type ChargerStatus struct {
 	Lmo *int      `json:"lmo"`
 	Amp *int      `json:"amp"`
+	Psm *int      `json:"psm"` // Phase switch mode: 0=auto/3-phase, 1=1-phase
 	Nrg []float64 `json:"nrg"`
 	Eto *float64  `json:"eto"` // Total energy charged in Wh
 }
@@ -477,7 +478,7 @@ func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
 
 func readChargerStatus(cfg Config) (ChargerStatus, error) {
 	var status ChargerStatus
-	resp, err := httpClient.Get(fmt.Sprintf("http://%s/api/status?filter=lmo,amp,nrg,eto", cfg.ChargerIP))
+	resp, err := httpClient.Get(fmt.Sprintf("http://%s/api/status?filter=lmo,amp,psm,nrg,eto", cfg.ChargerIP))
 	if err != nil {
 		return status, err
 	}
@@ -497,6 +498,17 @@ func setChargerAmperage(cfg Config, amperage int) error {
 	}
 	defer resp.Body.Close()
 	debugLog(cfg, "Set charger amperage to %dA", amperage)
+	return nil
+}
+
+func setChargerPhaseMode(cfg Config, phaseMode int) error {
+	url := fmt.Sprintf("http://%s/api/set?psm=%d", cfg.ChargerIP, phaseMode)
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	debugLog(cfg, "Set charger phase mode to psm=%d", phaseMode)
 	return nil
 }
 
@@ -530,12 +542,22 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 	if status.Amp != nil {
 		chargerAmp = *status.Amp
 	}
+	chargerPsm := 0
+	if status.Psm != nil {
+		chargerPsm = *status.Psm
+	}
 	chargerPower := 0
 	if len(status.Nrg) > 11 {
 		chargerPower = int(status.Nrg[11])
 	}
 
 	if chargerMode != PVMode || chargerPower > 4400 {
+		// Restore auto phase switching (allow 3-phase) if not in PV 1-phase mode
+		if chargerPsm != 0 {
+			log.Println("[INFO] Restoring automatic phase switching (3-phase allowed)")
+			setChargerPhaseMode(cfg, 0)
+		}
+
 		housePower, err := readHousePower(cfg)
 		if err != nil {
 			debugLog(cfg, "Failed to read house power: %v", err)
@@ -569,8 +591,13 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 			setChargerAmperage(cfg, newAmp)
 		}
 	} else {
+		// In PV Mode (under 4.4kW threshold): Set 16A and lock to 1-phase mode
 		if chargerAmp != MaxAmperage {
 			setChargerAmperage(cfg, MaxAmperage)
+		}
+		if chargerPsm != 1 {
+			log.Println("[INFO] PV Mode detected: Restricting charger to 1-phase charging")
+			setChargerPhaseMode(cfg, 1)
 		}
 	}
 }
