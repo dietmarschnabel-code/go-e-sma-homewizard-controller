@@ -59,6 +59,7 @@ type Config struct {
 	SMALogPath         string
 	MaxPowerLimitWatts int
 	SafetyMarginWatts  int
+	PVPhaseMode        int // Configurable phase mode for PV charging: 0=auto/3-phase, 1=1-phase
 	Latitude           float64
 	Longitude          float64
 	DebugMode          bool
@@ -131,6 +132,7 @@ func initConfig() Config {
 	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
+	flag.IntVar(&c.PVPhaseMode, "pv-phase-mode", 1, "Phase mode for PV charging: 0=auto/3-phase, 1=1-phase only")
 
 	flag.Float64Var(&c.Latitude, "lat", 999.0, "Latitude (set to enable precise sunrise calculation)")
 	flag.Float64Var(&c.Longitude, "lng", 999.0, "Longitude (set to enable precise sunrise calculation)")
@@ -158,6 +160,11 @@ func initConfig() Config {
 	if env := os.Getenv("SAFETY_MARGIN_WATTS"); env != "" {
 		if val, err := strconv.Atoi(env); err == nil {
 			c.SafetyMarginWatts = val
+		}
+	}
+	if env := os.Getenv("PV_PHASE_MODE"); env != "" {
+		if val, err := strconv.Atoi(env); err == nil {
+			c.PVPhaseMode = val
 		}
 	}
 	if env := os.Getenv("LATITUDE"); env != "" {
@@ -552,7 +559,7 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 	}
 
 	if chargerMode != PVMode || chargerPower > 4400 {
-		// Restore auto phase switching (allow 3-phase) if not in PV 1-phase mode
+		// Restore auto phase switching (allow 3-phase) if not in PV mode
 		if chargerPsm != 0 {
 			log.Println("[INFO] Restoring automatic phase switching (3-phase allowed)")
 			setChargerPhaseMode(cfg, 0)
@@ -591,13 +598,13 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 			setChargerAmperage(cfg, newAmp)
 		}
 	} else {
-		// In PV Mode (under 4.4kW threshold): Set 16A and lock to 1-phase mode
+		// In PV Mode (under 4.4kW threshold): Set 16A and apply configured phase mode (psm)
 		if chargerAmp != MaxAmperage {
 			setChargerAmperage(cfg, MaxAmperage)
 		}
-		if chargerPsm != 1 {
-			log.Println("[INFO] PV Mode detected: Restricting charger to 1-phase charging")
-			setChargerPhaseMode(cfg, 1)
+		if chargerPsm != cfg.PVPhaseMode {
+			log.Printf("[INFO] PV Mode detected: Setting charger phase mode to psm=%d", cfg.PVPhaseMode)
+			setChargerPhaseMode(cfg, cfg.PVPhaseMode)
 		}
 	}
 }
@@ -624,7 +631,7 @@ func main() {
 
 	log.Println("[INFO] Starting Cross-Platform Controller...")
 	log.Printf("[INFO] Charger IP: %s | Meter IP: %s", cfg.ChargerIP, cfg.P1IP)
-	log.Printf("[INFO] Power limit: %dW | Watt/Amp: %dW", targetLimitWatts, wattPerAmp)
+	log.Printf("[INFO] Power limit: %dW | Watt/Amp: %dW | PV Phase Mode: %d", targetLimitWatts, wattPerAmp, cfg.PVPhaseMode)
 	if cfg.SMALogPath == "" {
 		log.Println("[INFO] SMA Log parsing is DISABLED")
 	}
