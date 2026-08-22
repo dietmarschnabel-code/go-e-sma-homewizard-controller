@@ -59,7 +59,7 @@ type Config struct {
 	SMALogPath         string
 	MaxPowerLimitWatts int
 	SafetyMarginWatts  int
-	PVPhaseMode        int // Configurable phase mode for PV charging: 0=auto/3-phase, 1=1-phase
+	PVPhaseMode        int // Configurable phase mode: -1=do not touch (default), 0=auto/3-phase, 1=1-phase
 	Latitude           float64
 	Longitude          float64
 	DebugMode          bool
@@ -132,7 +132,7 @@ func initConfig() Config {
 	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
-	flag.IntVar(&c.PVPhaseMode, "pv-phase-mode", 1, "Phase mode for PV charging: 0=auto/3-phase, 1=1-phase only")
+	flag.IntVar(&c.PVPhaseMode, "pv-phase-mode", -1, "Phase mode for PV charging: -1=do not touch (default), 0=auto/3-phase, 1=1-phase only")
 
 	flag.Float64Var(&c.Latitude, "lat", 999.0, "Latitude (set to enable precise sunrise calculation)")
 	flag.Float64Var(&c.Longitude, "lng", 999.0, "Longitude (set to enable precise sunrise calculation)")
@@ -287,7 +287,6 @@ func writeDailyCSVRow(targetPath string, now time.Time, data HomeWizardData, cha
 	defer writer.Flush()
 
 	if !fileExists {
-		// Preserves original 4 columns first, then appends charger total energy and power
 		writer.Write([]string{"timestamp", "import_kwh", "export_kwh", "active_power_w", "charger_total_kwh", "charger_power_w"})
 	}
 
@@ -343,7 +342,6 @@ func getStartOfDayReadings(dailyPath string) (float64, float64, float64, error) 
 	if chargerColIdx != -1 && len(firstRow) > chargerColIdx {
 		chg, _ = strconv.ParseFloat(firstRow[chargerColIdx], 64)
 	} else if len(firstRow) >= 5 {
-		// Fallback for previous intermediate schemas
 		chg, _ = strconv.ParseFloat(firstRow[4], 64)
 	}
 
@@ -422,7 +420,7 @@ func logP1ToCSV(cfg Config) {
 			chargerPowerW = int(status.Nrg[11])
 		}
 		if status.Eto != nil {
-			chargerTotalKWh = *status.Eto / 1000.0 // convert Wh to kWh
+			chargerTotalKWh = *status.Eto / 1000.0
 		}
 	} else {
 		debugLog(cfg, "[P1 CSV] Failed to query charger status: %v", err)
@@ -431,10 +429,8 @@ func logP1ToCSV(cfg Config) {
 	now := time.Now()
 	dailyPath := getDailyCSVPath(cfg.P1CSVPath, now)
 
-	// 1. Log raw reading to Daily CSV
 	writeDailyCSVRow(dailyPath, now, data, chargerTotalKWh, chargerPowerW, cfg)
 
-	// 2. Read baseline reading (start of day / 00:00)
 	startImport, startExport, startCharger, err := getStartOfDayReadings(dailyPath)
 	if err != nil {
 		startImport = data.TotalPowerImportKWh
@@ -442,7 +438,6 @@ func logP1ToCSV(cfg Config) {
 		startCharger = chargerTotalKWh
 	}
 
-	// Calculate net daily consumption, production, and charger energy so far
 	dailyImport := data.TotalPowerImportKWh - startImport
 	if dailyImport < 0 {
 		dailyImport = 0
@@ -456,7 +451,6 @@ func logP1ToCSV(cfg Config) {
 		dailyCharger = 0
 	}
 
-	// 3. Update single row for today in Monthly CSV
 	monthlyPath := getMonthlyCSVPath(cfg.P1CSVPath, now)
 	dateStr := now.Format("2006-01-02")
 	updateMonthlyCSV(monthlyPath, dateStr, dailyImport, dailyExport, dailyCharger, cfg)
@@ -559,8 +553,8 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 	}
 
 	if chargerMode != PVMode || chargerPower > 4400 {
-		// Restore auto phase switching (allow 3-phase) if not in PV mode
-		if chargerPsm != 0 {
+		// Restore automatic phase switching (allow 3-phase) only if phase mode control is explicitly enabled (!= -1)
+		if cfg.PVPhaseMode != -1 && chargerPsm != 0 {
 			log.Println("[INFO] Restoring automatic phase switching (3-phase allowed)")
 			setChargerPhaseMode(cfg, 0)
 		}
@@ -598,11 +592,11 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 			setChargerAmperage(cfg, newAmp)
 		}
 	} else {
-		// In PV Mode (under 4.4kW threshold): Set 16A and apply configured phase mode (psm)
+		// In PV Mode (under 4.4kW threshold): Set 16A and apply configured phase mode if specified (!= -1)
 		if chargerAmp != MaxAmperage {
 			setChargerAmperage(cfg, MaxAmperage)
 		}
-		if chargerPsm != cfg.PVPhaseMode {
+		if cfg.PVPhaseMode != -1 && chargerPsm != cfg.PVPhaseMode {
 			log.Printf("[INFO] PV Mode detected: Setting charger phase mode to psm=%d", cfg.PVPhaseMode)
 			setChargerPhaseMode(cfg, cfg.PVPhaseMode)
 		}
