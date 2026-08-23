@@ -5,6 +5,12 @@ and SMA PV data. It must be served by a web server. Opening `index.html`
 directly from the file system will not work reliably because the dashboard
 loads its data with HTTP requests.
 
+## Dashboard preview
+
+![Solar Energy Dashboard](webapp/dashboard-screenshot.png)
+
+The image is documentation only and is not needed for the dashboard to run.
+
 ## Directory layout
 
 The web server document root should contain the webapp files and these two

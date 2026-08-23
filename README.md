@@ -12,8 +12,14 @@ This can be easily done with google ai search help.
 
 Then you just need to start the script. (you might test with bash -x) I am also planning to release a debian package which includes startup file and more configuration files. This should be also able to run on a rasperry pi environment. (but i run it on a laptop with ubuntu 26.04)
 
-The static energy dashboard and its CSV directory layout are described in
-[WEBAPP.md](WEBAPP.md).
+## Webapp
+
+The repository includes a static energy dashboard for viewing PV generation,
+grid power, household import/export, and EV charging data. See the
+[webapp setup guide](WEBAPP.md) for the required CSV files and a local server
+example.
+
+![Solar Energy Dashboard](webapp/dashboard-screenshot.png)
 
 ## Windows + Linux alternate solution
 
