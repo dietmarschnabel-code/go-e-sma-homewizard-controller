@@ -35,9 +35,12 @@ const translations = {
         balanced: "Balanced",
         usedLocally: "kWh used locally",
 
-        // Status Modal Labels
+        // Status Modal & Theme Switcher Labels
         systemStatusBtn: "Status",
         systemStatus: "System Status",
+        themeLabel: "Dashboard Theme",
+        themeDark: "Dark",
+        themeLight: "Light",
         localTime: "Local Time:",
         operatingDays: "System Uptime:",
         totalPvGen: "Total PV Generation:",
@@ -96,9 +99,12 @@ const translations = {
         balanced: "Ausgeglichen",
         usedLocally: "kWh eigenverbraucht",
 
-        // Status Modal Labels
+        // Status Modal & Theme Switcher Labels
         systemStatusBtn: "Status",
         systemStatus: "Systemstatus",
+        themeLabel: "Dashboard Design",
+        themeDark: "Dunkel",
+        themeLight: "Hell",
         localTime: "Lokale Uhrzeit:",
         operatingDays: "Laufzeit Anlage:",
         totalPvGen: "Gesamterzeugung PV:",
