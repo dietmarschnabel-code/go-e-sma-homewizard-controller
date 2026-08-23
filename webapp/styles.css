@@ -1,7 +1,7 @@
 /* =========================================
-   Base Variables & Dark Theme
+   Base Variables & Theme Configuration
    ========================================= */
-:root {
+:root, [data-theme="dark"] {
     --bg-main: #0f172a;
     --bg-card: #1e293b;
     --text-main: #f8fafc;
@@ -12,7 +12,28 @@
     --import-red: #ef4444;
     --export-green: #10b981;
     --border-color: #334155;
+    --chart-text: #8e9bb0;
+    --chart-grid: rgba(255, 255, 255, 0.05);
+    --chart-tooltip-bg: #0f172a;
     --font-family: 'Century Gothic', system-ui, -apple-system, sans-serif;
+    color-scheme: dark;
+}
+
+[data-theme="light"] {
+    --bg-main: #f1f5f9;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --pv-orange: #d97706;
+    --import-red: #dc2626;
+    --export-green: #059669;
+    --border-color: #e2e8f0;
+    --chart-text: #475569;
+    --chart-grid: rgba(0, 0, 0, 0.06);
+    --chart-tooltip-bg: #ffffff;
+    color-scheme: light;
 }
 
 /* =========================================
@@ -30,6 +51,7 @@ body {
     font-family: var(--font-family);
     padding: 24px;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 .hidden {
@@ -37,10 +59,10 @@ body {
 }
 
 /* =========================================
-   Layout & Header
+   Layout & Header (Fluid & Scalable)
    ========================================= */
 .dashboard-container {
-    max-width: 1200px;
+    max-width: clamp(1200px, 85vw, 2500px);
     margin: 0 auto;
 }
 
@@ -54,7 +76,7 @@ body {
 }
 
 .dashboard-header h1 {
-    font-size: 1.8rem;
+    font-size: clamp(1.8rem, 1.5vw + 1rem, 3rem);
     font-weight: 600;
 }
 
@@ -92,7 +114,7 @@ body {
 .toggle-btn.active {
     background-color: var(--accent);
     color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .date-picker-container {
@@ -136,7 +158,6 @@ body {
     padding: 8px 12px;
     border-radius: 8px;
     font-family: inherit;
-    color-scheme: dark;
     width: 160px;
 }
 
@@ -160,19 +181,20 @@ body {
     border-radius: 12px;
     padding: 20px;
     border: 1px solid var(--border-color);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .card h3 {
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: clamp(0.85rem, 0.5vw + 0.5rem, 1.2rem);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 12px;
 }
 
 .metric-value {
-    font-size: 1.8rem;
+    font-size: clamp(1.8rem, 1.2vw + 1rem, 3.2rem);
     font-weight: bold;
     margin-bottom: 4px;
 }
@@ -191,12 +213,12 @@ body {
 
 .chart-container {
     position: relative;
-    height: 440px;
+    height: clamp(440px, 50vh, 850px);
     width: 100%;
 }
 
 /* =========================================
-   Status Modal Styling
+   Status Modal & Theme Switcher Styling
    ========================================= */
 .modal {
     position: fixed;
@@ -204,7 +226,7 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(15, 23, 42, 0.8);
+    background-color: rgba(15, 23, 42, 0.7);
     backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
@@ -216,7 +238,7 @@ body {
     width: 90%;
     max-width: 420px;
     padding: 24px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
@@ -258,6 +280,33 @@ body {
     font-size: 1.05rem;
 }
 
+/* Theme Switcher Toggle */
+.theme-toggle {
+    display: flex;
+    background-color: var(--bg-main);
+    border-radius: 6px;
+    padding: 3px;
+    border: 1px solid var(--border-color);
+}
+
+.theme-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.theme-btn.active {
+    background-color: var(--accent);
+    color: #ffffff;
+}
+
 .modal-divider {
     border: 0;
     border-top: 1px solid var(--border-color);
@@ -265,8 +314,36 @@ body {
 }
 
 /* =========================================
-   Mobile Responsiveness & Touch Optimization
+   Responsive & Ultra-HD Breakpoints
    ========================================= */
+@media (min-width: 2560px) {
+    body {
+        padding: 40px;
+    }
+
+    .card {
+        padding: 32px;
+        border-radius: 18px;
+    }
+
+    .toggle-btn {
+        padding: 14px 28px;
+        font-size: 1.1rem;
+    }
+
+    .picker-input {
+        width: 220px;
+        font-size: 1.1rem;
+        height: 48px;
+    }
+
+    .date-nav-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 1.8rem;
+    }
+}
+
 @media (max-width: 1024px) {
     .kpi-grid {
         grid-template-columns: repeat(3, 1fr);
@@ -287,7 +364,6 @@ body {
     }
 
     .dashboard-header h1 {
-        font-size: 1.4rem;
         text-align: center;
     }
 
@@ -332,14 +408,6 @@ body {
         padding: 16px 14px;
     }
 
-    .metric-value {
-        font-size: 1.5rem;
-    }
-
-    .card h3 {
-        font-size: 0.75rem;
-    }
-
     .chart-section {
         padding: 16px 12px;
     }
@@ -352,9 +420,5 @@ body {
 @media (max-width: 480px) {
     .kpi-grid {
         grid-template-columns: 1fr;
-    }
-    
-    .metric-value {
-        font-size: 1.8rem;
     }
 }
