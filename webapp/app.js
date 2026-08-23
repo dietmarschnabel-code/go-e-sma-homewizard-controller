@@ -142,7 +142,7 @@ async function renderDailyView() {
     document.getElementById('export-metric').textContent = `${exportToday.toFixed(1)} kWh`;
     document.getElementById('charger-metric').textContent = `${chargerToday.toFixed(1)} kWh`;
 
-    // Render Line Chart
+    // Render Line/Bar Combo Chart
     const timeMap = new Map();
     pvData.forEach(d => timeMap.set(d.timeOnly, { pv: d.pv_power_w, grid: null, charger: null }));
     p1Data.forEach(d => {
@@ -153,10 +153,43 @@ async function renderDailyView() {
     });
 
     const labels = Array.from(timeMap.keys()).sort();
+    
     drawChart(labels, [
-        { label: t('pvGenLabelW'), data: labels.map(t => timeMap.get(t).pv), borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.15)', type: 'line', fill: true, tension: 0.2 },
-        { label: t('gridPowerLabelW'), data: labels.map(t => timeMap.get(t).grid), borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.15)', type: 'line', fill: false, tension: 0.2 },
-        { label: t('chargerPowerLabelW'), data: labels.map(t => timeMap.get(t).charger), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.15)', type: 'line', fill: false, tension: 0.2 }
+        { 
+            label: t('pvGenLabelW'), 
+            // Suppress rendering when PV is 0 or null
+            data: labels.map(t => {
+                const val = timeMap.get(t).pv;
+                return (val && val > 0) ? val : null;
+            }), 
+            backgroundColor: 'rgba(245, 158, 11, 0.45)', 
+            hoverBackgroundColor: '#f59e0b',
+            type: 'bar',
+            barPercentage: 1.0,
+            categoryPercentage: 1.0
+        },
+        { 
+            label: t('gridPowerLabelW'), 
+            data: labels.map(t => timeMap.get(t).grid), 
+            borderColor: '#ef4444', 
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            type: 'line', 
+            fill: false, 
+            tension: 0.15 
+        },
+        { 
+            label: t('chargerPowerLabelW'), 
+            data: labels.map(t => timeMap.get(t).charger), 
+            borderColor: '#3b82f6', 
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            type: 'line', 
+            fill: false, 
+            tension: 0.15 
+        }
     ], t('unitWatts'));
 }
 
@@ -305,7 +338,7 @@ function drawChart(labels, datasets, yAxisTitle) {
     if (chartInstance) chartInstance.destroy();
 
     chartInstance = new Chart(ctx, {
-        type: datasets[0].type || 'line',
+        type: 'bar',
         data: { labels: labels, datasets: datasets },
         options: {
             responsive: true,
@@ -313,8 +346,8 @@ function drawChart(labels, datasets, yAxisTitle) {
             interaction: { mode: 'index', intersect: false },
             scales: {
                 x: { 
-                    grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, 
-                    ticks: { color: '#8e9bb0', font: { family: 'Century Gothic', size: 12 } } 
+                    grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false }, 
+                    ticks: { color: '#8e9bb0', font: { family: 'Century Gothic', size: 12 }, maxRotation: 0 } 
                 },
                 y: { 
                     grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, 
