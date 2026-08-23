@@ -62,7 +62,7 @@ func main() {
 	}
 
 	if *mode == "monthly" || *mode == "both" {
-		if err := generateMonthlyFiles(records, goeSessions, *outDir); err != nil {
+		if err := generateMonthlyFiles(records, goeSessions, *outDir, *chargerOffset); err != nil {
 			log.Fatalf("Fehler bei Monatsdateien: %v", err)
 		}
 	}
@@ -105,6 +105,7 @@ func parseNetzNoe(filepath string) ([]IntervalRecord, error) {
 
 	idxTime, idxExport, idxImport := -1, -1, -1
 	for i, col := range header {
+		// Strip UTF-8 Byte Order Mark (BOM) if present
 		cleanCol := strings.TrimPrefix(strings.TrimSpace(col), "\ufeff")
 		if strings.HasPrefix(cleanCol, "Messzeitpunkt") {
 			idxTime = i
@@ -116,7 +117,7 @@ func parseNetzNoe(filepath string) ([]IntervalRecord, error) {
 	}
 
 	if idxTime == -1 || idxExport == -1 || idxImport == -1 {
-		return nil, fmt.Errorf("erforderliche Spalten nicht gefunden")
+		return nil, fmt.Errorf("erforderliche Spalten nicht gefunden (idxTime: %d, idxExport: %d, idxImport: %d)", idxTime, idxExport, idxImport)
 	}
 
 	var records []IntervalRecord
@@ -232,38 +233,44 @@ func parseGoE(filepath string) ([]GoESession, error) {
 	return sessions, nil
 }
 
-func generateMonthlyFiles(records []IntervalRecord, goeSessions []GoESession, outDir string) error {
+func generateMonthlyFiles(records []IntervalRecord, goeSessions []GoESession, outDir string, chargerOffset float64) error {
 	type DailySum struct {
-		Import  float64
-		Export  float64
-		Charger float64
+		Import        float64
+		Export        float64
+		ChargerStart  float64
+		ChargerEnd    float64
+		HasChargerVal bool
 	}
 
 	monthlyMap := make(map[string]map[string]*DailySum)
 
 	for _, r := range records {
-		monthKey := r.Timestamp.Format("200601")
-		dayKey := r.Timestamp.Format("2006-01-02")
+		stepImport := r.Import / 3.0
+		stepExport := r.Export / 3.0
+		intervalStart := r.Timestamp.Add(-15 * time.Minute)
 
-		if _, ok := monthlyMap[monthKey]; !ok {
-			monthlyMap[monthKey] = make(map[string]*DailySum)
-		}
-		if _, ok := monthlyMap[monthKey][dayKey]; !ok {
-			monthlyMap[monthKey][dayKey] = &DailySum{}
-		}
+		for i := 0; i < 3; i++ {
+			tTick := intervalStart.Add(time.Duration(i*5) * time.Minute)
+			monthKey := tTick.Format("200601")
+			dayKey := tTick.Format("2006-01-02")
 
-		monthlyMap[monthKey][dayKey].Import += r.Import
-		monthlyMap[monthKey][dayKey].Export += r.Export
-	}
-
-	for _, s := range goeSessions {
-		monthKey := s.Start.Format("200601")
-		dayKey := s.Start.Format("2006-01-02")
-
-		if m, ok := monthlyMap[monthKey]; ok {
-			if d, ok := m[dayKey]; ok {
-				d.Charger += s.Energy
+			if _, ok := monthlyMap[monthKey]; !ok {
+				monthlyMap[monthKey] = make(map[string]*DailySum)
 			}
+			if _, ok := monthlyMap[monthKey][dayKey]; !ok {
+				monthlyMap[monthKey][dayKey] = &DailySum{}
+			}
+
+			m := monthlyMap[monthKey][dayKey]
+			m.Import += stepImport
+			m.Export += stepExport
+
+			chargerTotal, _ := getGoEStatusAt(tTick, goeSessions, chargerOffset)
+			if !m.HasChargerVal {
+				m.ChargerStart = chargerTotal
+				m.HasChargerVal = true
+			}
+			m.ChargerEnd = chargerTotal
 		}
 	}
 
@@ -285,11 +292,17 @@ func generateMonthlyFiles(records []IntervalRecord, goeSessions []GoESession, ou
 
 		for _, dayStr := range dayKeys {
 			sum := days[dayStr]
+
+			chargerKwh := 0.0
+			if sum.HasChargerVal && sum.ChargerEnd >= sum.ChargerStart {
+				chargerKwh = sum.ChargerEnd - sum.ChargerStart
+			}
+
 			writer.Write([]string{
 				dayStr,
 				fmt.Sprintf("%.3f", sum.Import),
 				fmt.Sprintf("%.3f", sum.Export),
-				fmt.Sprintf("%.3f", sum.Charger),
+				fmt.Sprintf("%.3f", chargerKwh),
 			})
 		}
 
