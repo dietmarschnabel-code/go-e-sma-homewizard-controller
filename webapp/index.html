@@ -89,6 +89,14 @@
             </div>
             <div class="modal-body">
                 <div class="status-row">
+                    <span data-i18n="themeLabel">Theme:</span>
+                    <div class="theme-toggle">
+                        <button id="theme-btn-dark" class="theme-btn active" onclick="setTheme('dark')" data-i18n="themeDark">Dark</button>
+                        <button id="theme-btn-light" class="theme-btn" onclick="setTheme('light')" data-i18n="themeLight">Light</button>
+                    </div>
+                </div>
+                <hr class="modal-divider">
+                <div class="status-row">
                     <span data-i18n="localTime">Local Time:</span>
                     <strong id="status-clock">--:--:--</strong>
                 </div>
