@@ -25,6 +25,31 @@ function initYearSelector() {
     }
 }
 
+// --- THEME MANAGEMENT ---
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(savedTheme, false);
+}
+
+function setTheme(theme, redraw = true) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+
+    // Toggle active state on status modal buttons
+    const darkBtn = document.getElementById('theme-btn-dark');
+    const lightBtn = document.getElementById('theme-btn-light');
+
+    if (darkBtn && lightBtn) {
+        darkBtn.classList.toggle('active', theme === 'dark');
+        lightBtn.classList.toggle('active', theme === 'light');
+    }
+
+    // Refresh chart to pick up theme colors (gridlines, ticks, tooltip colors)
+    if (redraw) {
+        updateDashboard();
+    }
+}
+
 function switchView(viewMode) {
     currentView = viewMode;
 
@@ -331,11 +356,19 @@ async function renderYearlyView() {
     ], t('unitKwhPerMonth'));
 }
 
-// Chart Rendering Engine with Dark Theme Integration
+// Chart Rendering Engine with Dynamic Theme Integration
 function drawChart(labels, datasets, yAxisTitle) {
     const ctx = document.getElementById('energyChart').getContext('2d');
 
     if (chartInstance) chartInstance.destroy();
+
+    // Dynamically retrieve current computed colors from CSS variables
+    const style = getComputedStyle(document.body);
+    const textColor = style.getPropertyValue('--chart-text').trim() || '#8e9bb0';
+    const mainTextColor = style.getPropertyValue('--text-main').trim() || '#f8fafc';
+    const gridColor = style.getPropertyValue('--chart-grid').trim() || 'rgba(255, 255, 255, 0.05)';
+    const tooltipBg = style.getPropertyValue('--chart-tooltip-bg').trim() || '#0f172a';
+    const tooltipBorder = style.getPropertyValue('--border-color').trim() || '#26334d';
 
     chartInstance = new Chart(ctx, {
         type: 'bar',
@@ -346,24 +379,24 @@ function drawChart(labels, datasets, yAxisTitle) {
             interaction: { mode: 'index', intersect: false },
             scales: {
                 x: { 
-                    grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false }, 
-                    ticks: { color: '#8e9bb0', font: { family: 'Century Gothic', size: 12 }, maxRotation: 0 } 
+                    grid: { color: gridColor, drawBorder: false }, 
+                    ticks: { color: textColor, font: { family: 'Century Gothic', size: 12 }, maxRotation: 0 } 
                 },
                 y: { 
-                    grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, 
-                    ticks: { color: '#8e9bb0', font: { family: 'Century Gothic', size: 12 } },
-                    title: { display: true, text: yAxisTitle, color: '#8e9bb0', font: { size: 12, weight: 'bold' } } 
+                    grid: { color: gridColor, drawBorder: false }, 
+                    ticks: { color: textColor, font: { family: 'Century Gothic', size: 12 } },
+                    title: { display: true, text: yAxisTitle, color: textColor, font: { size: 12, weight: 'bold' } } 
                 }
             },
             plugins: { 
                 legend: { 
-                    labels: { color: '#f8fafc', font: { family: 'Century Gothic', size: 13 }, usePointStyle: true, padding: 20 } 
+                    labels: { color: mainTextColor, font: { family: 'Century Gothic', size: 13 }, usePointStyle: true, padding: 20 } 
                 },
                 tooltip: {
-                    backgroundColor: '#0f172a',
-                    titleColor: '#f8fafc',
-                    bodyColor: '#cbd5e1',
-                    borderColor: '#26334d',
+                    backgroundColor: tooltipBg,
+                    titleColor: mainTextColor,
+                    bodyColor: textColor,
+                    borderColor: tooltipBorder,
                     borderWidth: 1,
                     padding: 12,
                     boxPadding: 6,
@@ -431,6 +464,7 @@ async function updateSystemStatusData() {
 
 // Initialization & Event Binding
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     initYearSelector();
     startStatusClock();
 
