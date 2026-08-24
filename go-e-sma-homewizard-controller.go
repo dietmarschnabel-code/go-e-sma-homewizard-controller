@@ -566,9 +566,9 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 		}
 
 		otherPower := housePower - chargerPower
-		if otherPower < 0 {
-			otherPower = 0
-		}
+		//	if otherPower < 0 {
+		//		otherPower = 0
+		//	}
 
 		availablePower := targetLimitWatts - otherPower
 		newAmp := availablePower / wattPerAmp
