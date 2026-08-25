@@ -5,38 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title data-i18n="title">Solar Energy Dashboard</title>
     
-    <!-- PWA Manifest & Colors (crossorigin passes auth credentials to fix 401s) -->
+    <!-- PWA Manifest & Colors -->
     <link rel="manifest" href="manifest.json" type="application/manifest+json" crossorigin="use-credentials">
     <meta name="theme-color" content="#000000">
-    
-    <!-- Modern PWA Web App Meta Tag (Replaces Deprecated Apple Tag) -->
     <meta name="mobile-web-app-capable" content="yes">
 
     <!-- Legacy iOS / Safari Full-Screen Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SolarDash">
-    <!-- Legacy fallback for old browsers (IE/older browsers load this first) -->
+
+    <!-- Browser Icons -->
     <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="32x32">
-
-    <!-- Modern SVG Favicon (Preferred by Chrome, Firefox, Edge, Safari 14+) -->
     <link rel="icon" href="icon.svg" type="image/svg+xml" sizes="any">
-
-    <!-- Standard PNG Icons for Android/Desktop Fallbacks -->
     <link rel="icon" href="favicon-192.png" type="image/png" sizes="192x192">
     <link rel="icon" href="favicon-512.png" type="image/png" sizes="512x512">
-
-    <!-- iOS Home Screen Icon -->
     <link rel="apple-touch-icon" href="favicon-192.png" crossorigin="use-credentials">
     
-    <!-- Stylesheets & External Libraries -->
+    <!-- Stylesheets & Chart.js -->
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
     <div class="dashboard-container">
-        <!-- Header & Controls -->
+        <!-- Header & Navigation -->
         <header class="dashboard-header">
             <h1 data-i18n="title">Solar Energy Dashboard</h1>
             
@@ -88,7 +81,10 @@
         </div>
 
         <!-- Chart Section -->
-        <div class="chart-section card">
+        <div class="chart-section card" id="chart-section">
+            <div class="chart-header" style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                <button id="btn-fullscreen" class="fullscreen-btn" onclick="toggleChartFullscreen()" data-i18n="fullscreen">⛶ Fullscreen</button>
+            </div>
             <div class="chart-container">
                 <canvas id="energyChart"></canvas>
             </div>
@@ -140,20 +136,14 @@
         </div>
     </div>
 
-    <!-- Internationalization Script -->
+    <!-- Scripts in original loading order -->
     <script src="i18n.js"></script>
-    
-    <!-- Data Scripts -->
     <script src="pv.js"></script>
     <script src="p1.js"></script>
-    
-    <!-- App Logic -->
     <script src="app.js"></script>
     
-    <!-- Authenticated Service Worker Registration -->
     <script>
     if ('serviceWorker' in navigator) {
-        // Pass credentials mode to allow fetching sw.js through HTTP authentication
         navigator.serviceWorker.register('./sw.js', { credentials: 'include' })
             .then(() => console.log('Service Worker Registered (Authenticated)'))
             .catch(err => console.error('SW Error:', err));
