@@ -1,8 +1,18 @@
+/* ==========================================================================
+   Solar Energy Dashboard - Main Application Logic (app.js)
+   ========================================================================== */
+
 let currentView = 'daily'; // 'daily', 'monthly', 'yearly'
 let chartInstance = null;
+let statusClockInterval = null;
 
-// Target Start Date of PV System (Year, Month - 1, Day)
+// Target Start Date of PV System (Year, Month - 1, Day) -> Sept 27, 2011
 const SYSTEM_START_DATE = new Date(2011, 8, 27); 
+
+// Helper for i18n fallback if translation function is not present
+function translate(key) {
+    return (typeof t === 'function') ? t(key) : key;
+}
 
 // Parse date input string "YYYY-MM-DD" safely without UTC timezone shifts
 function parseLocalDate(dateString) {
@@ -14,6 +24,8 @@ function parseLocalDate(dateString) {
 // Populate Year Selector Dropdown
 function initYearSelector() {
     const yearSelect = document.getElementById('year-select');
+    if (!yearSelect) return;
+    
     const currentYear = new Date().getFullYear();
     yearSelect.innerHTML = '';
     
@@ -35,7 +47,6 @@ function setTheme(theme, redraw = true) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
 
-    // Toggle active state on status modal buttons
     const darkBtn = document.getElementById('theme-btn-dark');
     const lightBtn = document.getElementById('theme-btn-light');
 
@@ -44,7 +55,6 @@ function setTheme(theme, redraw = true) {
         lightBtn.classList.toggle('active', theme === 'light');
     }
 
-    // Refresh chart to pick up theme colors (gridlines, ticks, tooltip colors)
     if (redraw) {
         updateDashboard();
     }
@@ -53,22 +63,21 @@ function setTheme(theme, redraw = true) {
 function switchView(viewMode) {
     currentView = viewMode;
 
-    // Toggle button active states
     document.querySelectorAll('.view-toggle .toggle-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`btn-${viewMode}`).classList.add('active');
+    const activeBtn = document.getElementById(`btn-${viewMode}`);
+    if (activeBtn) activeBtn.classList.add('active');
 
-    // Toggle date pickers
     const dateSelect = document.getElementById('date-select');
     const monthSelect = document.getElementById('month-select');
     const yearSelect = document.getElementById('year-select');
 
-    dateSelect.classList.add('hidden');
-    monthSelect.classList.add('hidden');
-    yearSelect.classList.add('hidden');
+    if (dateSelect) dateSelect.classList.add('hidden');
+    if (monthSelect) monthSelect.classList.add('hidden');
+    if (yearSelect) yearSelect.classList.add('hidden');
 
-    if (viewMode === 'daily') dateSelect.classList.remove('hidden');
-    if (viewMode === 'monthly') monthSelect.classList.remove('hidden');
-    if (viewMode === 'yearly') yearSelect.classList.remove('hidden');
+    if (viewMode === 'daily' && dateSelect) dateSelect.classList.remove('hidden');
+    if (viewMode === 'monthly' && monthSelect) monthSelect.classList.remove('hidden');
+    if (viewMode === 'yearly' && yearSelect) yearSelect.classList.remove('hidden');
 
     updateDashboard();
 }
@@ -126,25 +135,21 @@ async function renderDailyView() {
     const month = selectedDate.getMonth() + 1;
     const day = selectedDate.getDate();
 
-    // Fetch daily interval data AND the monthly summary to get the exact daily PV total
     const [p1Data, pvData, pvMonthly] = await Promise.all([
         fetchP1DailyData(selectedDate),
         fetchPVDailyData(selectedDate),
         fetchPVMonthlyData(year, month)
     ]);
 
-    // Update KPI Card Headers using i18n
-    document.getElementById('kpi-pv-title').textContent = t('pvGenToday');
-    document.getElementById('kpi-grid-title').textContent = t('gridActivePower');
-    document.getElementById('kpi-import-title').textContent = t('importToday');
-    document.getElementById('kpi-export-title').textContent = t('exportToday');
-    document.getElementById('kpi-charger-title').textContent = t('chargerToday');
+    document.getElementById('kpi-pv-title').textContent = translate('pvGenToday');
+    document.getElementById('kpi-grid-title').textContent = translate('gridActivePower');
+    document.getElementById('kpi-import-title').textContent = translate('importToday');
+    document.getElementById('kpi-export-title').textContent = translate('exportToday');
+    document.getElementById('kpi-charger-title').textContent = translate('chargerToday');
 
-    // 1. PV Generation (Daily Total in kWh)
     const dailyPVTotal = pvMonthly[day] || 0;
     document.getElementById('pv-metric').textContent = `${dailyPVTotal.toFixed(1)} kWh`;
 
-    // 2. Grid Active Power (Instantaneous)
     const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
     const firstP1 = p1Data.length > 0 ? p1Data[0] : null;
 
@@ -155,10 +160,8 @@ async function renderDailyView() {
     gridEl.textContent = `${Math.abs(gridPower)} W`;
     gridEl.style.color = gridPower > 0 ? 'var(--import-red)' : (gridPower < 0 ? 'var(--export-green)' : 'var(--text-main)');
     
-    // Translated Grid Status
-    statusEl.textContent = gridPower > 0 ? t('importingFromGrid') : (gridPower < 0 ? t('exportingToGrid') : t('balanced'));
+    statusEl.textContent = gridPower > 0 ? translate('importingFromGrid') : (gridPower < 0 ? translate('exportingToGrid') : translate('balanced'));
 
-    // 3. Import, Export & EV Charger (Daily Totals)
     const importToday = (latestP1 && firstP1) ? Math.max(0, latestP1.import_kwh - firstP1.import_kwh) : 0;
     const exportToday = (latestP1 && firstP1) ? Math.max(0, latestP1.export_kwh - firstP1.export_kwh) : 0;
     const chargerToday = (latestP1 && firstP1) ? Math.max(0, (latestP1.charger_total_kwh || 0) - (firstP1.charger_total_kwh || 0)) : 0;
@@ -167,7 +170,6 @@ async function renderDailyView() {
     document.getElementById('export-metric').textContent = `${exportToday.toFixed(1)} kWh`;
     document.getElementById('charger-metric').textContent = `${chargerToday.toFixed(1)} kWh`;
 
-    // Render Line/Bar Combo Chart
     const timeMap = new Map();
     pvData.forEach(d => timeMap.set(d.timeOnly, { pv: d.pv_power_w, grid: null, charger: null }));
     p1Data.forEach(d => {
@@ -181,8 +183,7 @@ async function renderDailyView() {
     
     drawChart(labels, [
         { 
-            label: t('pvGenLabelW'), 
-            // Suppress rendering when PV is 0 or null
+            label: translate('pvGenLabelW'), 
             data: labels.map(t => {
                 const val = timeMap.get(t).pv;
                 return (val && val > 0) ? val : null;
@@ -194,7 +195,7 @@ async function renderDailyView() {
             categoryPercentage: 1.0
         },
         { 
-            label: t('gridPowerLabelW'), 
+            label: translate('gridPowerLabelW'), 
             data: labels.map(t => timeMap.get(t).grid), 
             borderColor: '#ef4444', 
             borderWidth: 1.5,
@@ -205,7 +206,7 @@ async function renderDailyView() {
             tension: 0.15 
         },
         { 
-            label: t('chargerPowerLabelW'), 
+            label: translate('chargerPowerLabelW'), 
             data: labels.map(t => timeMap.get(t).charger), 
             borderColor: '#3b82f6', 
             borderWidth: 1.5,
@@ -215,7 +216,7 @@ async function renderDailyView() {
             fill: false, 
             tension: 0.15 
         }
-    ], t('unitWatts'));
+    ], translate('unitWatts'));
 }
 
 // --- MONTHLY VIEW ---
@@ -255,12 +256,11 @@ async function renderMonthlyView() {
         totalCharger += p1.charger_kwh;
     }
 
-    // Update KPI Card Headers using i18n
-    document.getElementById('kpi-pv-title').textContent = t('pvGenMonth');
-    document.getElementById('kpi-grid-title').textContent = t('selfConsumptionRate');
-    document.getElementById('kpi-import-title').textContent = t('importMonth');
-    document.getElementById('kpi-export-title').textContent = t('exportMonth');
-    document.getElementById('kpi-charger-title').textContent = t('chargerMonth');
+    document.getElementById('kpi-pv-title').textContent = translate('pvGenMonth');
+    document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
+    document.getElementById('kpi-import-title').textContent = translate('importMonth');
+    document.getElementById('kpi-export-title').textContent = translate('exportMonth');
+    document.getElementById('kpi-charger-title').textContent = translate('chargerMonth');
 
     document.getElementById('pv-metric').textContent = `${totalPV.toFixed(1)} kWh`;
     document.getElementById('import-metric').textContent = `${totalImport.toFixed(1)} kWh`;
@@ -272,22 +272,20 @@ async function renderMonthlyView() {
     document.getElementById('grid-metric').textContent = `${selfConsumedPct} %`;
     document.getElementById('grid-metric').style.color = 'var(--text-main)';
     
-    // Translated status string
-    document.getElementById('grid-status').textContent = `${selfConsumed.toFixed(1)} ${t('usedLocally')}`;
+    document.getElementById('grid-status').textContent = `${selfConsumed.toFixed(1)} ${translate('usedLocally')}`;
 
     drawChart(labels, [
-        { label: t('pvGenLabelKwh'), data: pvSeries, backgroundColor: '#f59e0b', type: 'bar' },
-        { label: t('importLabelKwh'), data: importSeries, backgroundColor: '#ef4444', type: 'bar' },
-        { label: t('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' },
-        { label: t('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
-    ], t('unitKwhPerDay'));
+        { label: translate('pvGenLabelKwh'), data: pvSeries, backgroundColor: '#f59e0b', type: 'bar' },
+        { label: translate('importLabelKwh'), data: importSeries, backgroundColor: '#ef4444', type: 'bar' },
+        { label: translate('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' },
+        { label: translate('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
+    ], translate('unitKwhPerDay'));
 }
 
 // --- YEARLY VIEW ---
 async function renderYearlyView() {
     const year = parseInt(document.getElementById('year-select').value, 10);
     
-    // Dynamically localized month abbreviations
     const langLocale = (typeof currentLang !== 'undefined' && currentLang === 'de') ? 'de-DE' : 'en-US';
     const monthNames = Array.from({ length: 12 }, (_, i) => 
         new Date(year, i, 1).toLocaleDateString(langLocale, { month: 'short' })
@@ -328,12 +326,11 @@ async function renderYearlyView() {
         totalCharger += mCharger;
     });
 
-    // Update KPI Card Headers using i18n
-    document.getElementById('kpi-pv-title').textContent = t('pvGenYear');
-    document.getElementById('kpi-grid-title').textContent = t('selfConsumptionRate');
-    document.getElementById('kpi-import-title').textContent = t('importYear');
-    document.getElementById('kpi-export-title').textContent = t('exportYear');
-    document.getElementById('kpi-charger-title').textContent = t('chargerYear');
+    document.getElementById('kpi-pv-title').textContent = translate('pvGenYear');
+    document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
+    document.getElementById('kpi-import-title').textContent = translate('importYear');
+    document.getElementById('kpi-export-title').textContent = translate('exportYear');
+    document.getElementById('kpi-charger-title').textContent = translate('chargerYear');
 
     document.getElementById('pv-metric').textContent = `${totalPV.toFixed(0)} kWh`;
     document.getElementById('import-metric').textContent = `${totalImport.toFixed(0)} kWh`;
@@ -345,30 +342,33 @@ async function renderYearlyView() {
     document.getElementById('grid-metric').textContent = `${selfConsumedPct} %`;
     document.getElementById('grid-metric').style.color = 'var(--text-main)';
     
-    // Translated status string
-    document.getElementById('grid-status').textContent = `${selfConsumed.toFixed(0)} ${t('usedLocally')}`;
+    document.getElementById('grid-status').textContent = `${selfConsumed.toFixed(0)} ${translate('usedLocally')}`;
 
     drawChart(monthNames, [
-        { label: t('pvGenLabelKwh'), data: pvSeries, backgroundColor: '#f59e0b', type: 'bar' },
-        { label: t('importLabelKwh'), data: importSeries, backgroundColor: '#ef4444', type: 'bar' },
-        { label: t('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' },
-        { label: t('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
-    ], t('unitKwhPerMonth'));
+        { label: translate('pvGenLabelKwh'), data: pvSeries, backgroundColor: '#f59e0b', type: 'bar' },
+        { label: translate('importLabelKwh'), data: importSeries, backgroundColor: '#ef4444', type: 'bar' },
+        { label: translate('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' },
+        { label: translate('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
+    ], translate('unitKwhPerMonth'));
 }
-
 // Chart Rendering Engine with Dynamic Theme Integration
 function drawChart(labels, datasets, yAxisTitle) {
-    const ctx = document.getElementById('energyChart').getContext('2d');
+    const canvas = document.getElementById('energyChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
     if (chartInstance) chartInstance.destroy();
 
-    // Dynamically retrieve current computed colors from CSS variables
-    const style = getComputedStyle(document.body);
-    const textColor = style.getPropertyValue('--chart-text').trim() || '#8e9bb0';
-    const mainTextColor = style.getPropertyValue('--text-main').trim() || '#f8fafc';
-    const gridColor = style.getPropertyValue('--chart-grid').trim() || 'rgba(255, 255, 255, 0.05)';
-    const tooltipBg = style.getPropertyValue('--chart-tooltip-bg').trim() || '#0f172a';
-    const tooltipBorder = style.getPropertyValue('--border-color').trim() || '#26334d';
+    // Check current theme state
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const style = getComputedStyle(document.documentElement);
+
+    // Resolve CSS variables with theme-sensitive fallbacks
+    const textColor = style.getPropertyValue('--chart-text').trim() || (isLight ? '#475569' : '#8e9bb0');
+    const mainTextColor = style.getPropertyValue('--text-main').trim() || (isLight ? '#0f172a' : '#f8fafc');
+    const gridColor = style.getPropertyValue('--chart-grid').trim() || (isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)');
+    const tooltipBg = style.getPropertyValue('--chart-tooltip-bg').trim() || (isLight ? '#ffffff' : '#0f172a');
+    const tooltipBorder = style.getPropertyValue('--border-color').trim() || (isLight ? '#cbd5e1' : '#26334d');
 
     chartInstance = new Chart(ctx, {
         type: 'bar',
@@ -408,9 +408,33 @@ function drawChart(labels, datasets, yAxisTitle) {
     });
 }
 
+function toggleChartFullscreen() {
+    const chartSec = document.getElementById('chart-section');
+    if (!chartSec) return;
+
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (chartSec.requestFullscreen) {
+            chartSec.requestFullscreen();
+        } else if (chartSec.webkitRequestFullscreen) {
+            chartSec.webkitRequestFullscreen();
+        } else {
+            chartSec.classList.add('is-fullscreen');
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+        chartSec.classList.remove('is-fullscreen');
+    }
+}
+
 // --- STATUS MODAL LOGIC ---
 async function toggleStatusModal() {
     const modal = document.getElementById('status-modal');
+    if (!modal) return;
+    
     modal.classList.toggle('hidden');
     
     if (!modal.classList.contains('hidden')) {
@@ -420,46 +444,51 @@ async function toggleStatusModal() {
 
 function startStatusClock() {
     const clockEl = document.getElementById('status-clock');
+    if (!clockEl) return;
+    
     const updateTime = () => {
         const now = new Date();
         clockEl.textContent = now.toLocaleTimeString();
     };
     updateTime();
-    setInterval(updateTime, 1000);
+    
+    if (statusClockInterval) clearInterval(statusClockInterval);
+    statusClockInterval = setInterval(updateTime, 1000);
 }
 
 async function updateSystemStatusData() {
     const now = new Date();
     
-    // Operating days calculation
     const diffTime = Math.abs(now - SYSTEM_START_DATE);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    document.getElementById('status-days').textContent = `${diffDays} ${t('daysUnit')}`;
+    
+    const daysEl = document.getElementById('status-days');
+    if (daysEl) {
+        daysEl.textContent = `${diffDays.toLocaleString()} ${translate('daysUnit')}`;
+    }
 
-    // Fetch today's daily export data directly
     const [p1Data, pvData] = await Promise.all([
         fetchP1DailyData(now),
         fetchPVDailyData(now)
     ]);
 
-    // Extract the latest reading from today's CSV files
     const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
     const latestPV = pvData.length > 0 ? pvData[pvData.length - 1] : null;
 
-    // Read cumulative totals directly from meter readings
     const grandTotalImport = latestP1 ? latestP1.import_kwh : 0;
     const grandTotalExport = latestP1 ? latestP1.export_kwh : 0;
     const grandTotalPV = latestPV ? (latestPV.pv_total_kwh || latestPV.total_kwh || 0) : 0;
     const grandTotalCharger = latestP1 ? (latestP1.charger_total_kwh || 0) : 0;
 
-    document.getElementById('status-pv-total').textContent = `${Math.round(grandTotalPV).toLocaleString()} kWh`;
-    document.getElementById('status-import-total').textContent = `${Math.round(grandTotalImport).toLocaleString()} kWh`;
-    document.getElementById('status-export-total').textContent = `${Math.round(grandTotalExport).toLocaleString()} kWh`;
-    
+    const statusPvEl = document.getElementById('status-pv-total');
+    const statusImpEl = document.getElementById('status-import-total');
+    const statusExpEl = document.getElementById('status-export-total');
     const statusChargerEl = document.getElementById('status-charger-total');
-    if (statusChargerEl) {
-        statusChargerEl.textContent = `${Math.round(grandTotalCharger).toLocaleString()} kWh`;
-    }
+
+    if (statusPvEl) statusPvEl.textContent = `${Math.round(grandTotalPV).toLocaleString()} kWh`;
+    if (statusImpEl) statusImpEl.textContent = `${Math.round(grandTotalImport).toLocaleString()} kWh`;
+    if (statusExpEl) statusExpEl.textContent = `${Math.round(grandTotalExport).toLocaleString()} kWh`;
+    if (statusChargerEl) statusChargerEl.textContent = `${Math.round(grandTotalCharger).toLocaleString()} kWh`;
 }
 
 // Initialization & Event Binding
@@ -477,17 +506,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
 
-    datePicker.value = `${yyyy}-${mm}-${dd}`;
-    monthPicker.value = `${yyyy}-${mm}`;
-    yearPicker.value = yyyy;
+    if (datePicker) datePicker.value = `${yyyy}-${mm}-${dd}`;
+    if (monthPicker) monthPicker.value = `${yyyy}-${mm}`;
+    if (yearPicker) yearPicker.value = yyyy;
 
-    datePicker.addEventListener('change', updateDashboard);
-    monthPicker.addEventListener('change', updateDashboard);
-    yearPicker.addEventListener('change', updateDashboard);
+    if (datePicker) datePicker.addEventListener('change', updateDashboard);
+    if (monthPicker) monthPicker.addEventListener('change', updateDashboard);
+    if (yearPicker) yearPicker.addEventListener('change', updateDashboard);
 
     updateDashboard();
 
-    // Auto-refresh daily view every 5 minutes
     setInterval(() => { 
         if (currentView === 'daily') updateDashboard(); 
     }, 5 * 60 * 1000);
