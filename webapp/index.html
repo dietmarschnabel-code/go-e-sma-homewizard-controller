@@ -16,13 +16,19 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SolarDash">
+    <!-- Legacy fallback for old browsers (IE/older browsers load this first) -->
+    <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="32x32">
 
-    <!-- Standard Compliant Icons -->
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <!-- Modern SVG Favicon (Preferred by Chrome, Firefox, Edge, Safari 14+) -->
+    <link rel="icon" href="icon.svg" type="image/svg+xml" sizes="any">
+
+    <!-- Standard PNG Icons for Android/Desktop Fallbacks -->
     <link rel="icon" href="favicon-192.png" type="image/png" sizes="192x192">
     <link rel="icon" href="favicon-512.png" type="image/png" sizes="512x512">
-    <link rel="apple-touch-icon" href="favicon-192.png" crossorigin="use-credentials">
 
+    <!-- iOS Home Screen Icon -->
+    <link rel="apple-touch-icon" href="favicon-192.png" crossorigin="use-credentials">
+    
     <!-- Stylesheets & External Libraries -->
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
