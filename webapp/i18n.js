@@ -49,6 +49,10 @@ const translations = {
         totalCharger: "Total EV Charged:",
         daysUnit: "days",
 
+        // Chart Controls & Localized Fullscreen
+        fullscreen: "⛶ Fullscreen",
+        exitFullscreen: "✕ Exit Fullscreen",
+
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV Generation (W)",
         gridPowerLabelW: "Grid Active Power (W)",
@@ -112,6 +116,10 @@ const translations = {
         totalExport: "Gesamt Einspeisung:",
         totalCharger: "Gesamt E-Auto Geladen:",
         daysUnit: "Tage",
+
+        // Chart Controls & Localized Fullscreen
+        fullscreen: "⛶ Vollbild",
+        exitFullscreen: "✕ Vollbild beenden",
 
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV-Erzeugung (W)",
