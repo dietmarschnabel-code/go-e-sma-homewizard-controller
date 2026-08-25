@@ -5,17 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title data-i18n="title">Solar Energy Dashboard</title>
     
-    <!-- PWA Manifest & Full-Screen Settings -->
-    <link rel="manifest" href="manifest.json">
+    <!-- PWA Manifest & Colors (crossorigin passes auth credentials to fix 401s) -->
+    <link rel="manifest" href="manifest.json" type="application/manifest+json" crossorigin="use-credentials">
     <meta name="theme-color" content="#000000">
     
-    <!-- iOS / Safari Full-Screen Support -->
+    <!-- Modern PWA Web App Meta Tag (Replaces Deprecated Apple Tag) -->
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Legacy iOS / Safari Full-Screen Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SolarDash">
 
+    <!-- Standard Compliant Icons -->
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="icon" href="favicon-192.png" type="image/png" sizes="192x192">
+    <link rel="icon" href="favicon-512.png" type="image/png" sizes="512x512">
+    <link rel="apple-touch-icon" href="favicon-192.png" crossorigin="use-credentials">
+
+    <!-- Stylesheets & External Libraries -->
     <link rel="stylesheet" href="styles.css">
-    <link rel="shortcut icon" href="/pv/favicon.ico" type="image/x-icon" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -125,20 +134,23 @@
         </div>
     </div>
 
-    <!-- Internationalization Script (Loaded First) -->
+    <!-- Internationalization Script -->
     <script src="i18n.js"></script>
     
-    <!-- DATA SCRIPTS -->
+    <!-- Data Scripts -->
     <script src="pv.js"></script>
     <script src="p1.js"></script>
     
     <!-- App Logic -->
     <script src="app.js"></script>
+    
+    <!-- Authenticated Service Worker Registration -->
     <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
-        .then(() => console.log('Service Worker Registered'))
-        .catch(err => console.error('SW Error:', err));
+        // Pass credentials mode to allow fetching sw.js through HTTP authentication
+        navigator.serviceWorker.register('./sw.js', { credentials: 'include' })
+            .then(() => console.log('Service Worker Registered (Authenticated)'))
+            .catch(err => console.error('SW Error:', err));
     }
     </script>
 </body>
