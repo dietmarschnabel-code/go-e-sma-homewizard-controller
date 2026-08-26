@@ -1,133 +1,246 @@
 /* =========================================
-   Solar Energy Dashboard Main Styles
+   Base Variables & Theme Configuration
    ========================================= */
-
-:root {
+:root, [data-theme="dark"] {
     --bg-main: #0f172a;
     --bg-card: #1e293b;
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --pv-orange: #f59e0b;
+    --import-red: #ef4444;
+    --export-green: #10b981;
     --border-color: #334155;
-    --accent-pv: #f59e0b;
-    --accent-grid: #ef4444;
-    --accent-export: #10b981;
-    --accent-charger: #3b82f6;
+    --chart-text: #8e9bb0;
+    --chart-grid: rgba(255, 255, 255, 0.05);
+    --chart-tooltip-bg: #0f172a;
+    --font-family: 'Century Gothic', system-ui, -apple-system, sans-serif;
+    color-scheme: dark;
 }
 
 [data-theme="light"] {
-    --bg-main: #f8fafc;
+    --bg-main: #f1f5f9;
     --bg-card: #ffffff;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --pv-orange: #d97706;
+    --import-red: #dc2626;
+    --export-green: #059669;
     --border-color: #e2e8f0;
+    --chart-text: #475569;
+    --chart-grid: rgba(0, 0, 0, 0.06);
+    --chart-tooltip-bg: #ffffff;
+    color-scheme: light;
 }
 
+/* =========================================
+   Global Reset
+   ========================================= */
 * {
-    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    box-sizing: border-box;
 }
 
 body {
     background-color: var(--bg-main);
-    color: var(--text-primary);
-    padding: 16px;
-}
-
-.dashboard-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-/* Header & Controls */
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-}
-
-.header-controls {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.view-toggle, .date-picker-container {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-}
-
-button, select, .picker-input {
-    background-color: var(--bg-card);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-}
-
-button.active, .toggle-btn.active {
-    border-color: var(--accent-pv);
-    color: var(--accent-pv);
+    color: var(--text-main);
+    font-family: var(--font-family);
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 .hidden {
     display: none !important;
 }
 
-/* KPI Cards Grid */
+/* =========================================
+   Layout & Header (Fluid & Scalable)
+   ========================================= */
+.dashboard-container {
+    max-width: clamp(1000px, 90vw, 2500px);
+    margin: 0 auto;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-header h1 {
+    font-size: clamp(1.6rem, 1.4vw + 0.8rem, 3rem);
+    font-weight: 600;
+}
+
+/* Controls */
+.header-controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.view-toggle {
+    display: flex;
+    background-color: var(--bg-card);
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.toggle-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    color: var(--text-main);
+}
+
+.toggle-btn.active {
+    background-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.date-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+}
+
+.date-nav-btn {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 38px;
+    height: 38px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.date-nav-btn:hover {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.date-nav-btn:active {
+    transform: scale(0.95);
+}
+
+.picker-input {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: inherit;
+    width: 160px;
+}
+
+.picker-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* =========================================
+   KPI Cards Grid (Supports 5 Cards)
+   ========================================= */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
+    margin-bottom: 24px;
 }
 
 .card {
     background-color: var(--bg-card);
+    border-radius: 12px;
+    padding: 20px;
     border: 1px solid var(--border-color);
-    padding: 16px;
-    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.card h3 {
+    color: var(--text-muted);
+    font-size: clamp(0.8rem, 0.4vw + 0.5rem, 1.1rem);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
 }
 
 .metric-value {
-    font-size: 1.5rem;
+    font-size: clamp(1.6rem, 1vw + 1rem, 2.8rem);
     font-weight: bold;
-    margin-top: 4px;
+    margin-bottom: 4px;
 }
 
 .status-text {
-    font-size: 0.8rem;
-    margin-top: 4px;
-    color: var(--text-secondary);
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
 
-/* Chart Container Section */
+/* =========================================
+   Chart Section & Fullscreen Mode
+   ========================================= */
 .chart-section {
+    padding: 20px 24px;
     position: relative;
+}
+
+.chart-header-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
 }
 
 .chart-container {
     position: relative;
-    height: 400px;
+    height: clamp(360px, 46vh, 850px);
     width: 100%;
 }
 
+/* Native & Fallback Fullscreen Rules */
+#chart-section.is-fullscreen,
+#chart-section:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    padding: 24px;
+    background-color: var(--bg-main);
+}
+
+#chart-section.is-fullscreen .chart-container,
+#chart-section:fullscreen .chart-container {
+    height: calc(100vh - 80px);
+}
+
 /* =========================================
-   Fixed Overlay Status Modal Dialog
+   Status Modal & Theme Switcher Styling
    ========================================= */
 .modal {
     position: fixed;
@@ -135,51 +248,85 @@ button.active, .toggle-btn.active {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.75);
+    background-color: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 999999;
-    padding: 16px;
-}
-
-/* Ensures hiding takes absolute precedence */
-.modal.hidden {
-    display: none !important;
+    z-index: 1000;
 }
 
 .modal-content {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    padding: 24px;
-    border-radius: 12px;
-    width: 100%;
+    width: 90%;
     max-width: 420px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    padding: 24px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
+}
+
+.modal-header h2 {
+    font-size: 1.2rem;
+    color: var(--text-main);
 }
 
 .close-btn {
-    background: transparent;
+    background: none;
     border: none;
-    font-size: 1.5rem;
-    color: var(--text-secondary);
+    color: var(--text-muted);
+    font-size: 1.8rem;
     cursor: pointer;
-    padding: 0 4px;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: var(--text-main);
 }
 
 .status-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    padding: 10px 0;
     font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.status-row strong {
+    color: var(--text-main);
+    font-size: 1.05rem;
+}
+
+/* Theme Switcher Toggle */
+.theme-toggle {
+    display: flex;
+    background-color: var(--bg-main);
+    border-radius: 6px;
+    padding: 3px;
+    border: 1px solid var(--border-color);
+}
+
+.theme-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.theme-btn.active {
+    background-color: var(--accent);
+    color: #ffffff;
 }
 
 .modal-divider {
@@ -188,42 +335,142 @@ button.active, .toggle-btn.active {
     margin: 12px 0;
 }
 
-.theme-toggle {
-    display: flex;
-    gap: 6px;
+/* =========================================
+   Responsive & Screen Breakpoints
+   ========================================= */
+
+/* 1366x720 / Laptop Height Optimization */
+@media (max-height: 768px) and (min-width: 1025px) {
+    body {
+        padding: 16px 20px;
+    }
+
+    .dashboard-header {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+    }
+
+    .kpi-grid {
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .card {
+        padding: 14px 16px;
+    }
+
+    .chart-section {
+        padding: 16px;
+    }
+
+    .chart-container {
+        height: clamp(300px, 42vh, 460px);
+    }
 }
 
-.theme-btn {
-    padding: 4px 10px;
-    font-size: 0.85rem;
+@media (min-width: 2560px) {
+    body {
+        padding: 40px;
+    }
+
+    .card {
+        padding: 32px;
+        border-radius: 18px;
+    }
+
+    .toggle-btn {
+        padding: 14px 28px;
+        font-size: 1.1rem;
+    }
+
+    .picker-input {
+        width: 220px;
+        font-size: 1.1rem;
+        height: 48px;
+    }
+
+    .date-nav-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 1.8rem;
+    }
 }
 
-/* Chart Fullscreen Mode */
-.chart-section:fullscreen, 
-.chart-section:-webkit-full-screen,
-.chart-section.is-fullscreen {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    z-index: 99999 !important;
-    background-color: var(--bg-main) !important;
-    padding: 16px !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    box-sizing: border-box !important;
+@media (max-width: 1024px) {
+    .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
-.chart-section:fullscreen .chart-container,
-.chart-section:-webkit-full-screen .chart-container,
-.chart-section.is-fullscreen .chart-container {
-    height: calc(100vh - 60px) !important;
-    width: 100% !important;
+@media (max-width: 768px) {
+    html, body {
+        padding: 12px 10px;
+    }
+
+    .dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+    }
+
+    .dashboard-header h1 {
+        text-align: center;
+    }
+
+    .header-controls {
+        flex-direction: column;
+        height: auto;
+        gap: 16px;
+    }
+
+    .view-toggle {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .toggle-btn {
+        flex: 1;
+        padding: 12px 8px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+    .date-picker-container {
+        width: 100%;
+        max-width: 320px;
+        margin: 0 auto;
+        height: 46px; 
+    }
+
+    .picker-input {
+        font-size: 1rem; 
+        width: 100%;
+        height: 100%;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .card {
+        padding: 16px 14px;
+    }
+
+    .chart-section {
+        padding: 16px 12px;
+    }
+
+    .chart-container {
+        height: 320px;
+    }
+}
+
+@media (max-width: 480px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
 }
