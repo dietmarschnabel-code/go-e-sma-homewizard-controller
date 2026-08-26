@@ -8,28 +8,28 @@
     <!-- PWA Manifest & Colors -->
     <link rel="manifest" href="manifest.json" type="application/manifest+json" crossorigin="use-credentials">
     <meta name="theme-color" content="#000000">
+    
+    <!-- Web App Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes">
-
-    <!-- Legacy iOS / Safari Full-Screen Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SolarDash">
 
-    <!-- Browser Icons -->
+    <!-- Icons -->
     <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="32x32">
     <link rel="icon" href="icon.svg" type="image/svg+xml" sizes="any">
     <link rel="icon" href="favicon-192.png" type="image/png" sizes="192x192">
     <link rel="icon" href="favicon-512.png" type="image/png" sizes="512x512">
     <link rel="apple-touch-icon" href="favicon-192.png" crossorigin="use-credentials">
     
-    <!-- Stylesheets & Chart.js -->
+    <!-- Stylesheets & External Libraries -->
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
     <div class="dashboard-container">
-        <!-- Header & Navigation -->
+        <!-- Header & Controls -->
         <header class="dashboard-header">
             <h1 data-i18n="title">Solar Energy Dashboard</h1>
             
@@ -81,9 +81,9 @@
         </div>
 
         <!-- Chart Section -->
-        <div class="chart-section card" id="chart-section">
-            <div class="chart-header" style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
-                <button id="btn-fullscreen" class="fullscreen-btn" onclick="toggleChartFullscreen()" data-i18n="fullscreen">⛶ Fullscreen</button>
+        <div id="chart-section" class="chart-section card">
+            <div class="chart-header-actions">
+                <button class="toggle-btn" onclick="toggleChartFullscreen()" data-i18n="fullscreen">⛶ Fullscreen</button>
             </div>
             <div class="chart-container">
                 <canvas id="energyChart"></canvas>
@@ -136,12 +136,17 @@
         </div>
     </div>
 
-    <!-- Scripts in original loading order -->
+    <!-- Internationalization Script -->
     <script src="i18n.js"></script>
+    
+    <!-- Data Scripts -->
     <script src="pv.js"></script>
     <script src="p1.js"></script>
+    
+    <!-- App Logic -->
     <script src="app.js"></script>
     
+    <!-- Authenticated Service Worker Registration -->
     <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js', { credentials: 'include' })
