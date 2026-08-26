@@ -351,6 +351,7 @@ async function renderYearlyView() {
         { label: translate('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
     ], translate('unitKwhPerMonth'));
 }
+
 // Chart Rendering Engine with Dynamic Theme Integration
 function drawChart(labels, datasets, yAxisTitle) {
     const canvas = document.getElementById('energyChart');
@@ -359,11 +360,9 @@ function drawChart(labels, datasets, yAxisTitle) {
 
     if (chartInstance) chartInstance.destroy();
 
-    // Check current theme state
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
     const style = getComputedStyle(document.documentElement);
 
-    // Resolve CSS variables with theme-sensitive fallbacks
     const textColor = style.getPropertyValue('--chart-text').trim() || (isLight ? '#475569' : '#8e9bb0');
     const mainTextColor = style.getPropertyValue('--text-main').trim() || (isLight ? '#0f172a' : '#f8fafc');
     const gridColor = style.getPropertyValue('--chart-grid').trim() || (isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)');
