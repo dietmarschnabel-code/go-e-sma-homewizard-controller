@@ -9,6 +9,7 @@ const translations = {
         daily: "Daily",
         monthly: "Monthly",
         yearly: "Yearly",
+        fullscreen: "⛶ Fullscreen",
         pvGen: "PV Generation",
         gridPower: "Grid Active Power",
         loading: "Loading...",
@@ -49,10 +50,6 @@ const translations = {
         totalCharger: "Total EV Charged:",
         daysUnit: "days",
 
-        // Chart Controls & Localized Fullscreen
-        fullscreen: "⛶ Fullscreen",
-        exitFullscreen: "✕ Exit Fullscreen",
-
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV Generation (W)",
         gridPowerLabelW: "Grid Active Power (W)",
@@ -77,6 +74,7 @@ const translations = {
         daily: "Täglich",
         monthly: "Monatlich",
         yearly: "Jährlich",
+        fullscreen: "⛶ Vollbild",
         pvGen: "PV-Erzeugung",
         gridPower: "Netz-Wirkleistung",
         loading: "Laden...",
@@ -116,10 +114,6 @@ const translations = {
         totalExport: "Gesamt Einspeisung:",
         totalCharger: "Gesamt E-Auto Geladen:",
         daysUnit: "Tage",
-
-        // Chart Controls & Localized Fullscreen
-        fullscreen: "⛶ Vollbild",
-        exitFullscreen: "✕ Vollbild beenden",
 
         // Chart Legends & Axis Labels
         pvGenLabelW: "PV-Erzeugung (W)",
