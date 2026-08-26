@@ -17,7 +17,7 @@ function parseP1DailyCSV(csvText) {
             const timeOnly = timestamp.split(' ')[1] ? timestamp.split(' ')[1].substring(0, 5) : timestamp;
             records.push({
                 timestamp: timestamp,
-                timeOnly: timeOnly,
+                timeOnly: typeof roundTo5Minutes === 'function' ? roundTo5Minutes(timeOnly) : timeOnly,
                 import_kwh: parseFloat(importKWh) || 0,
                 export_kwh: parseFloat(exportKWh) || 0,
                 active_power_w: parseFloat(activePowerW) || 0,

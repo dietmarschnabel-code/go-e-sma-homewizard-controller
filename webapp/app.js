@@ -171,12 +171,25 @@ async function renderDailyView() {
     document.getElementById('charger-metric').textContent = `${chargerToday.toFixed(1)} kWh`;
 
     const timeMap = new Map();
-    pvData.forEach(d => timeMap.set(d.timeOnly, { pv: d.pv_power_w, grid: null, charger: null }));
+    
+    pvData.forEach(d => {
+        const timeKey = typeof roundTo5Minutes === 'function' ? roundTo5Minutes(d.timeOnly) : d.timeOnly;
+        const existing = timeMap.get(timeKey) || { pv: null, grid: null, charger: null, gridSum: 0, chargerSum: 0, count: 0 };
+        existing.pv = d.pv_power_w;
+        timeMap.set(timeKey, existing);
+    });
+
     p1Data.forEach(d => {
-        const existing = timeMap.get(d.timeOnly) || { pv: null, grid: null, charger: null };
-        existing.grid = d.active_power_w;
-        existing.charger = d.charger_power_w;
-        timeMap.set(d.timeOnly, existing);
+        const timeKey = typeof roundTo5Minutes === 'function' ? roundTo5Minutes(d.timeOnly) : d.timeOnly;
+        const existing = timeMap.get(timeKey) || { pv: null, grid: null, charger: null, gridSum: 0, chargerSum: 0, count: 0 };
+        
+        existing.gridSum = (existing.gridSum || 0) + d.active_power_w;
+        existing.chargerSum = (existing.chargerSum || 0) + (d.charger_power_w || 0);
+        existing.count = (existing.count || 0) + 1;
+        existing.grid = Math.round(existing.gridSum / existing.count);
+        existing.charger = Math.round(existing.chargerSum / existing.count);
+
+        timeMap.set(timeKey, existing);
     });
 
     const labels = Array.from(timeMap.keys()).sort();

@@ -5,7 +5,7 @@
 // CONFIGURATION: Set time offset in minutes ONLY for PV data alignment.
 // Positive values shift PV data forward (+15 moves 12:00 -> 12:15).
 // Negative values shift PV data backward (-15 moves 12:15 -> 11:45).
-const PV_TIME_OFFSET_MINUTES = -15;
+const PV_TIME_OFFSET_MINUTES = -10;
 
 function formatDateYYYYMMDD(date) {
     const yyyy = date.getFullYear();
