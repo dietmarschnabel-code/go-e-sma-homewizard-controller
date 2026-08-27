@@ -225,7 +225,18 @@ body {
 }
 
 /* Native & Fallback Fullscreen Rules */
-#chart-section.is-fullscreen,
+#chart-section.is-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: 9999;
+    border-radius: 0;
+    padding: 20px;
+    background-color: var(--bg-main);
+}
+
 #chart-section:fullscreen {
     width: 100vw;
     height: 100vh;
@@ -236,7 +247,7 @@ body {
 
 #chart-section.is-fullscreen .chart-container,
 #chart-section:fullscreen .chart-container {
-    height: calc(100vh - 80px);
+    height: calc(100% - 40px);
 }
 
 /* =========================================
