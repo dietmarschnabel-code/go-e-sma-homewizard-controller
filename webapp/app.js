@@ -424,21 +424,26 @@ function toggleChartFullscreen() {
     const chartSec = document.getElementById('chart-section');
     if (!chartSec) return;
 
-    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    const isNativeFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const isCssFullscreen = chartSec.classList.contains('is-fullscreen');
+
+    if (isNativeFullscreen || isCssFullscreen) {
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+        chartSec.classList.remove('is-fullscreen');
+    } else {
         if (chartSec.requestFullscreen) {
-            chartSec.requestFullscreen();
+            chartSec.requestFullscreen().catch(() => {
+                chartSec.classList.add('is-fullscreen');
+            });
         } else if (chartSec.webkitRequestFullscreen) {
             chartSec.webkitRequestFullscreen();
         } else {
             chartSec.classList.add('is-fullscreen');
         }
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        }
-        chartSec.classList.remove('is-fullscreen');
     }
 }
 
