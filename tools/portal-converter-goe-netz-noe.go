@@ -107,7 +107,9 @@ func parseNetzNoe(filepath string) ([]IntervalRecord, error) {
 	for i, col := range header {
 		// Strip UTF-8 Byte Order Mark (BOM) if present
 		cleanCol := strings.TrimPrefix(strings.TrimSpace(col), "\ufeff")
-		if strings.HasPrefix(cleanCol, "Messzeitpunkt") {
+		
+		// Autodetect time column: "Messzeitpunkt" (yearly/period) or "Datum" (daily Tagesbilanz)
+		if strings.HasPrefix(cleanCol, "Messzeitpunkt") || strings.HasPrefix(cleanCol, "Datum") {
 			idxTime = i
 		} else if strings.HasPrefix(cleanCol, "Einspeisung") {
 			idxExport = i
@@ -141,9 +143,14 @@ func parseNetzNoe(filepath string) ([]IntervalRecord, error) {
 			continue
 		}
 
-		t, err := time.ParseInLocation("02.01.2006 15:04", strings.TrimSpace(line[idxTime]), loc)
+		timeStr := strings.TrimSpace(line[idxTime])
+		t, err := time.ParseInLocation("02.01.2006 15:04", timeStr, loc)
 		if err != nil {
-			continue
+			// Fallback parsing for timestamps including seconds (02.01.2006 15:04:05)
+			t, err = time.ParseInLocation("02.01.2006 15:04:05", timeStr, loc)
+			if err != nil {
+				continue
+			}
 		}
 
 		expStr := strings.ReplaceAll(strings.TrimSpace(line[idxExport]), ",", ".")
