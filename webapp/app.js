@@ -376,7 +376,7 @@ async function renderYearlyView() {
     ], translate('unitKwhPerMonth'));
 }
 
-// --- TOTAL VIEW ---
+// --- OPTIMIZED TOTAL VIEW WITH LOCAL STORAGE CACHING ---
 async function renderTotalView() {
     const currentYear = new Date().getFullYear();
     const startYear = SYSTEM_START_DATE.getFullYear();
@@ -386,15 +386,8 @@ async function renderTotalView() {
         years.push(y);
     }
 
-    const yearPromises = years.map(year => {
-        const monthlyPromises = [];
-        for (let m = 1; m <= 12; m++) {
-            monthlyPromises.push(Promise.all([fetchPVMonthlyData(year, m), fetchP1MonthlyData(year, m)]));
-        }
-        return Promise.all(monthlyPromises);
-    });
-
-    const yearsData = await Promise.all(yearPromises);
+    // Retrieve cached totals for historical years
+    const cachedTotals = JSON.parse(localStorage.getItem('solar_annual_totals') || '{}');
 
     const pvSeries = [];
     const importSeries = [];
@@ -403,17 +396,43 @@ async function renderTotalView() {
 
     let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
 
-    yearsData.forEach(monthlyResults => {
+    // Process each year sequentially or via cached lookup
+    for (const year of years) {
         let yPV = 0, yImport = 0, yExport = 0, yCharger = 0;
 
-        monthlyResults.forEach(([pvMonth, p1Month]) => {
-            Object.values(pvMonth).forEach(val => yPV += val);
-            Object.values(p1Month).forEach(val => {
-                yImport += val.import_kwh;
-                yExport += val.export_kwh;
-                yCharger += (val.charger_kwh || 0);
+        // Use cache for past years, always fetch live for the current year
+        if (year < currentYear && cachedTotals[year]) {
+            yPV = cachedTotals[year].pv;
+            yImport = cachedTotals[year].import;
+            yExport = cachedTotals[year].export;
+            yCharger = cachedTotals[year].charger;
+        } else {
+            // Fetch 12 months for this year
+            const monthlyPromises = [];
+            for (let m = 1; m <= 12; m++) {
+                monthlyPromises.push(Promise.all([
+                    fetchPVMonthlyData(year, m), 
+                    fetchP1MonthlyData(year, m)
+                ]));
+            }
+
+            const monthlyResults = await Promise.all(monthlyPromises);
+
+            monthlyResults.forEach(([pvMonth, p1Month]) => {
+                Object.values(pvMonth).forEach(val => yPV += val);
+                Object.values(p1Month).forEach(val => {
+                    yImport += val.import_kwh;
+                    yExport += val.export_kwh;
+                    yCharger += (val.charger_kwh || 0);
+                });
             });
-        });
+
+            // Cache closed historical years permanently
+            if (year < currentYear) {
+                cachedTotals[year] = { pv: yPV, import: yImport, export: yExport, charger: yCharger };
+                localStorage.setItem('solar_annual_totals', JSON.stringify(cachedTotals));
+            }
+        }
 
         pvSeries.push(yPV);
         importSeries.push(yImport);
@@ -424,8 +443,9 @@ async function renderTotalView() {
         totalImport += yImport;
         totalExport += yExport;
         totalCharger += yCharger;
-    });
+    }
 
+    // Update UI Elements
     document.getElementById('kpi-pv-title').textContent = translate('pvGenTotal');
     document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
     document.getElementById('kpi-import-title').textContent = translate('importTotal');
