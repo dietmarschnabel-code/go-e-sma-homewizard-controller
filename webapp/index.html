@@ -37,20 +37,22 @@
             <h1 data-i18n="title">Solar Energy Dashboard</h1>
             
             <div class="header-controls">
-                <div class="view-toggle">
-                    <button id="btn-daily" class="toggle-btn active" onclick="switchView('daily')" data-i18n="daily">Daily</button>
-                    <button id="btn-monthly" class="toggle-btn" onclick="switchView('monthly')" data-i18n="monthly">Monthly</button>
-                    <button id="btn-yearly" class="toggle-btn" onclick="switchView('yearly')" data-i18n="yearly">Yearly</button>
-                    <button id="btn-total" class="toggle-btn" onclick="switchView('total')" data-i18n="total">Total</button>
-                    <button id="btn-status" class="toggle-btn" onclick="toggleStatusModal()" data-i18n="systemStatusBtn">ℹ️ Status</button>
-                </div>
-                
+                <!-- Date picker is now placed on the left side for stable alignment -->
                 <div class="date-picker-container">
                     <button id="btn-prev-date" class="date-nav-btn" onclick="navigateDate(-1)" aria-label="Previous">&lsaquo;</button>
                     <input type="date" id="date-select" class="picker-input">
                     <input type="month" id="month-select" class="picker-input hidden">
                     <select id="year-select" class="picker-input hidden"></select>
                     <button id="btn-next-date" class="date-nav-btn" onclick="navigateDate(1)" aria-label="Next">&rsaquo;</button>
+                </div>
+
+                <!-- View toggles placed to the right of the date controls -->
+                <div class="view-toggle">
+                    <button id="btn-daily" class="toggle-btn active" onclick="switchView('daily')" data-i18n="daily">Daily</button>
+                    <button id="btn-monthly" class="toggle-btn" onclick="switchView('monthly')" data-i18n="monthly">Monthly</button>
+                    <button id="btn-yearly" class="toggle-btn" onclick="switchView('yearly')" data-i18n="yearly">Yearly</button>
+                    <button id="btn-total" class="toggle-btn" onclick="switchView('total')" data-i18n="total">Total</button>
+                    <button id="btn-status" class="toggle-btn" onclick="toggleStatusModal()" data-i18n="systemStatusBtn">ℹ️ Status</button>
                 </div>
             </div>
         </header>
