@@ -2,7 +2,7 @@
    Solar Energy Dashboard - Main Application Logic (app.js)
    ========================================================================== */
 
-let currentView = 'daily'; // 'daily', 'monthly', 'yearly'
+let currentView = 'daily'; // 'daily', 'monthly', 'yearly', 'total'
 let chartInstance = null;
 let statusClockInterval = null;
 
@@ -70,10 +70,19 @@ function switchView(viewMode) {
     const dateSelect = document.getElementById('date-select');
     const monthSelect = document.getElementById('month-select');
     const yearSelect = document.getElementById('year-select');
+    const dateNavContainer = document.querySelector('.date-picker-container');
 
     if (dateSelect) dateSelect.classList.add('hidden');
     if (monthSelect) monthSelect.classList.add('hidden');
     if (yearSelect) yearSelect.classList.add('hidden');
+
+    if (dateNavContainer) {
+        if (viewMode === 'total') {
+            dateNavContainer.classList.add('hidden');
+        } else {
+            dateNavContainer.classList.remove('hidden');
+        }
+    }
 
     if (viewMode === 'daily' && dateSelect) dateSelect.classList.remove('hidden');
     if (viewMode === 'monthly' && monthSelect) monthSelect.classList.remove('hidden');
@@ -124,6 +133,8 @@ async function updateDashboard() {
         await renderMonthlyView();
     } else if (currentView === 'yearly') {
         await renderYearlyView();
+    } else if (currentView === 'total') {
+        await renderTotalView();
     }
 }
 
@@ -365,6 +376,102 @@ async function renderYearlyView() {
     ], translate('unitKwhPerMonth'));
 }
 
+// --- OPTIMIZED TOTAL VIEW WITH LOCAL STORAGE CACHING ---
+async function renderTotalView() {
+    const currentYear = new Date().getFullYear();
+    const startYear = SYSTEM_START_DATE.getFullYear();
+    const years = [];
+    
+    for (let y = startYear; y <= currentYear; y++) {
+        years.push(y);
+    }
+
+    // Retrieve cached totals for historical years
+    const cachedTotals = JSON.parse(localStorage.getItem('solar_annual_totals') || '{}');
+
+    const pvSeries = [];
+    const importSeries = [];
+    const exportSeries = [];
+    const chargerSeries = [];
+
+    let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
+
+    // Process each year sequentially or via cached lookup
+    for (const year of years) {
+        let yPV = 0, yImport = 0, yExport = 0, yCharger = 0;
+
+        // Use cache for past years, always fetch live for the current year
+        if (year < currentYear && cachedTotals[year]) {
+            yPV = cachedTotals[year].pv;
+            yImport = cachedTotals[year].import;
+            yExport = cachedTotals[year].export;
+            yCharger = cachedTotals[year].charger;
+        } else {
+            // Fetch 12 months for this year
+            const monthlyPromises = [];
+            for (let m = 1; m <= 12; m++) {
+                monthlyPromises.push(Promise.all([
+                    fetchPVMonthlyData(year, m), 
+                    fetchP1MonthlyData(year, m)
+                ]));
+            }
+
+            const monthlyResults = await Promise.all(monthlyPromises);
+
+            monthlyResults.forEach(([pvMonth, p1Month]) => {
+                Object.values(pvMonth).forEach(val => yPV += val);
+                Object.values(p1Month).forEach(val => {
+                    yImport += val.import_kwh;
+                    yExport += val.export_kwh;
+                    yCharger += (val.charger_kwh || 0);
+                });
+            });
+
+            // Cache closed historical years permanently
+            if (year < currentYear) {
+                cachedTotals[year] = { pv: yPV, import: yImport, export: yExport, charger: yCharger };
+                localStorage.setItem('solar_annual_totals', JSON.stringify(cachedTotals));
+            }
+        }
+
+        pvSeries.push(yPV);
+        importSeries.push(yImport);
+        exportSeries.push(yExport);
+        chargerSeries.push(yCharger);
+
+        totalPV += yPV;
+        totalImport += yImport;
+        totalExport += yExport;
+        totalCharger += yCharger;
+    }
+
+    // Update UI Elements
+    document.getElementById('kpi-pv-title').textContent = translate('pvGenTotal');
+    document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
+    document.getElementById('kpi-import-title').textContent = translate('importTotal');
+    document.getElementById('kpi-export-title').textContent = translate('exportTotal');
+    document.getElementById('kpi-charger-title').textContent = translate('chargerTotal');
+
+    document.getElementById('pv-metric').textContent = `${(totalPV / 1000).toFixed(1)} MWh`;
+    document.getElementById('import-metric').textContent = `${(totalImport / 1000).toFixed(1)} MWh`;
+    document.getElementById('export-metric').textContent = `${(totalExport / 1000).toFixed(1)} MWh`;
+    document.getElementById('charger-metric').textContent = `${(totalCharger / 1000).toFixed(1)} MWh`;
+
+    const selfConsumed = Math.max(0, totalPV - totalExport);
+    const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
+    document.getElementById('grid-metric').textContent = `${selfConsumedPct} %`;
+    document.getElementById('grid-metric').style.color = 'var(--text-main)';
+    
+    document.getElementById('grid-status').textContent = `${(selfConsumed / 1000).toFixed(1)} MWh ${translate('usedLocally')}`;
+
+    drawChart(years.map(String), [
+        { label: translate('pvGenLabelKwh'), data: pvSeries, backgroundColor: '#f59e0b', type: 'bar' },
+        { label: translate('importLabelKwh'), data: importSeries, backgroundColor: '#ef4444', type: 'bar' },
+        { label: translate('exportLabelKwh'), data: exportSeries, backgroundColor: '#10b981', type: 'bar' },
+        { label: translate('chargerLabelKwh'), data: chargerSeries, backgroundColor: '#3b82f6', type: 'bar' }
+    ], translate('unitKwhPerYear'));
+}
+
 // Chart Rendering Engine with Dynamic Theme Integration
 function drawChart(labels, datasets, yAxisTitle) {
     const canvas = document.getElementById('energyChart');
@@ -424,26 +531,21 @@ function toggleChartFullscreen() {
     const chartSec = document.getElementById('chart-section');
     if (!chartSec) return;
 
-    const isNativeFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const isCssFullscreen = chartSec.classList.contains('is-fullscreen');
-
-    if (isNativeFullscreen || isCssFullscreen) {
-        if (document.exitFullscreen) {
-            document.exitFullscreen().catch(() => {});
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        }
-        chartSec.classList.remove('is-fullscreen');
-    } else {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         if (chartSec.requestFullscreen) {
-            chartSec.requestFullscreen().catch(() => {
-                chartSec.classList.add('is-fullscreen');
-            });
+            chartSec.requestFullscreen();
         } else if (chartSec.webkitRequestFullscreen) {
             chartSec.webkitRequestFullscreen();
         } else {
             chartSec.classList.add('is-fullscreen');
         }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+        chartSec.classList.remove('is-fullscreen');
     }
 }
 

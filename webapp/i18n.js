@@ -9,6 +9,7 @@ const translations = {
         daily: "Daily",
         monthly: "Monthly",
         yearly: "Yearly",
+        total: "Total",
         fullscreen: "⛶ Fullscreen",
         pvGen: "PV Generation",
         gridPower: "Grid Active Power",
@@ -21,14 +22,18 @@ const translations = {
         pvGenToday: "PV Generation (Today)",
         pvGenMonth: "PV Generation (Month)",
         pvGenYear: "PV Generation (Year)",
+        pvGenTotal: "PV Generation (Total)",
         gridActivePower: "Grid Active Power",
         selfConsumptionRate: "Self-Consumption Rate",
         importMonth: "Import (Month)",
         exportMonth: "Export (Month)",
         importYear: "Import (Year)",
         exportYear: "Export (Year)",
+        importTotal: "Import (Total)",
+        exportTotal: "Export (Total)",
         chargerMonth: "EV Charged (Month)",
         chargerYear: "EV Charged (Year)",
+        chargerTotal: "EV Charged (Total)",
 
         // Grid & Status Indicators
         importingFromGrid: "Importing from Grid",
@@ -61,6 +66,7 @@ const translations = {
         unitWatts: "Watts (W)",
         unitKwhPerDay: "kWh / day",
         unitKwhPerMonth: "kWh / month",
+        unitKwhPerYear: "kWh / year",
 
         // Legacy / Generic Labels
         import: "Import",
@@ -74,6 +80,7 @@ const translations = {
         daily: "Täglich",
         monthly: "Monatlich",
         yearly: "Jährlich",
+        total: "Gesamt",
         fullscreen: "⛶ Vollbild",
         pvGen: "PV-Erzeugung",
         gridPower: "Netz-Wirkleistung",
@@ -86,14 +93,18 @@ const translations = {
         pvGenToday: "PV-Erzeugung (Heute)",
         pvGenMonth: "PV-Erzeugung (Monat)",
         pvGenYear: "PV-Erzeugung (Jahr)",
+        pvGenTotal: "PV-Erzeugung (Gesamt)",
         gridActivePower: "Netz-Wirkleistung",
         selfConsumptionRate: "Eigenverbrauchsquote",
         importMonth: "Netzbezug (Monat)",
         exportMonth: "Einspeisung (Monat)",
         importYear: "Netzbezug (Jahr)",
         exportYear: "Einspeisung (Jahr)",
+        importTotal: "Netzbezug (Gesamt)",
+        exportTotal: "Einspeisung (Gesamt)",
         chargerMonth: "E-Auto geladen (Monat)",
         chargerYear: "E-Auto geladen (Jahr)",
+        chargerTotal: "E-Auto geladen (Gesamt)",
 
         // Grid & Status Indicators
         importingFromGrid: "Netzbezug",
@@ -126,6 +137,7 @@ const translations = {
         unitWatts: "Watt (W)",
         unitKwhPerDay: "kWh / Tag",
         unitKwhPerMonth: "kWh / Monat",
+        unitKwhPerYear: "kWh / Jahr",
 
         // Legacy / Generic Labels
         import: "Netzbezug",

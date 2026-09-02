@@ -70,7 +70,11 @@ async function fetchP1DailyData(date) {
 async function fetchP1MonthlyData(year, month) {
     const dateObj = new Date(year, month - 1, 1);
     const yyyymm = formatDateYYYYMM(dateObj);
-    const paths = [`/p1/p1-data-${yyyymm}.csv`, `/p1/p1_data-${yyyymm}.csv`, `/p1/${year}/p1-data-${yyyymm}.csv`];
+    const paths = [
+        `/p1/p1-data-${yyyymm}.csv`, 
+        `/p1/p1_data-${yyyymm}.csv`, 
+        `/p1/${year}/p1-data-${yyyymm}.csv`
+    ];
 
     for (const path of paths) {
         try {
@@ -79,28 +83,6 @@ async function fetchP1MonthlyData(year, month) {
         } catch (e) {}
     }
 
-    // Fallback: Aggregate daily P1 files for the month
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const result = {};
-    const promises = [];
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const d = new Date(year, month - 1, day);
-        promises.push(
-            fetchP1DailyData(d).then(readings => {
-                if (readings.length > 0) {
-                    const first = readings[0];
-                    const last = readings[readings.length - 1];
-                    result[day] = {
-                        import_kwh: Math.max(0, last.import_kwh - first.import_kwh),
-                        export_kwh: Math.max(0, last.export_kwh - first.export_kwh),
-                        charger_kwh: Math.max(0, (last.charger_total_kwh || 0) - (first.charger_total_kwh || 0))
-                    };
-                }
-            })
-        );
-    }
-
-    await Promise.all(promises);
-    return result;
+    // Daily fallback loop removed to improve performance
+    return {};
 }
