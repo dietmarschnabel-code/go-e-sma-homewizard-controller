@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="title">Anmeldung - Solar Energy Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --text-color: #0f172a;
+            --label-color: #475569;
+            --input-bg: #f1f5f9;
+            --input-border: #cbd5e1;
+            --button-bg: #2563eb;
+            --button-text: #ffffff;
+            --subtext-color: #64748b;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #0f172a;
+                --card-bg: #1e293b;
+                --card-border: #334155;
+                --text-color: #f8fafc;
+                --label-color: #94a3b8;
+                --input-bg: #0f172a;
+                --input-border: #334155;
+                --button-bg: #3b82f6;
+                --button-text: #ffffff;
+                --subtext-color: #94a3b8;
+            }
+        }
+
+        body.theme-light {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --text-color: #0f172a;
+            --label-color: #475569;
+            --input-bg: #f1f5f9;
+            --input-border: #cbd5e1;
+            --subtext-color: #64748b;
+        }
+
+        body.theme-dark {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-color: #f8fafc;
+            --label-color: #94a3b8;
+            --input-bg: #0f172a;
+            --input-border: #334155;
+            --subtext-color: #94a3b8;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Century Gothic', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .login-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 32px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+
+        .lang-switch {
+            background: none;
+            border: 1px solid var(--card-border);
+            color: var(--subtext-color);
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .error-banner {
+            display: none;
+            background-color: #ef444422;
+            border: 1px solid #ef4444;
+            color: #f87171;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--label-color);
+            font-size: 0.9rem;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--input-border);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        button.btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        button.btn-submit:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="card-header">
+            <h2 data-i18n="heading">Anmeldung</h2>
+            <button type="button" id="langToggle" class="lang-switch">EN</button>
+        </div>
+
+        <!-- Error Message Container -->
+        <div id="errorBanner" class="error-banner" data-i18n="errorMessage">
+            Ungültige Anmeldedaten. Bitte versuchen Sie es erneut.
+        </div>
+
+        <form method="POST" action="/webapp/dologin">
+            <div class="form-group">
+                <label for="httpd_username" data-i18n="usernameLabel">Benutzername</label>
+                <input type="text" id="httpd_username" name="httpd_username" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="httpd_password" data-i18n="passwordLabel">Passwort</label>
+                <input type="password" id="httpd_password" name="httpd_password" required>
+            </div>
+
+            <input type="hidden" name="httpd_destination" value="/webapp/index.html">
+
+            <button type="submit" class="btn-submit" data-i18n="loginButton">Anmelden</button>
+        </form>
+    </div>
+
+    <script>
+        // Dictionary containing translations
+        const i18n = {
+            de: {
+                title: "Anmeldung - Solar Energy Dashboard",
+                heading: "Anmeldung",
+                usernameLabel: "Benutzername",
+                passwordLabel: "Passwort",
+                loginButton: "Anmelden",
+                errorMessage: "Ungültige Anmeldedaten. Bitte versuchen Sie es erneut."
+            },
+            en: {
+                title: "Login - Solar Energy Dashboard",
+                heading: "Solar Dashboard Login",
+                usernameLabel: "Username",
+                passwordLabel: "Password",
+                loginButton: "Log In",
+                errorMessage: "Invalid username or password. Please try again."
+            }
+        };
+
+        // Determine language preference: localStorage > browser settings > default ('de')
+        const savedLang = localStorage.getItem('language') || localStorage.getItem('lang');
+        const browserLang = navigator.language.startsWith('de') ? 'de' : 'en';
+        let currentLang = savedLang || browserLang;
+
+        function applyLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            
+            // Translate all elements with data-i18n attribute
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang] && i18n[lang][key]) {
+                    if (el.tagName === 'TITLE') {
+                        document.title = i18n[lang][key];
+                    } else {
+                        el.textContent = i18n[lang][key];
+                    }
+                }
+            });
+
+            // Update language toggle button label
+            document.getElementById('langToggle').textContent = lang === 'de' ? 'EN' : 'DE';
+            
+            // Store preference so app and login page share state
+            localStorage.setItem('language', lang);
+        }
+
+        // Handle language switcher click
+        document.getElementById('langToggle').addEventListener('click', () => {
+            applyLanguage(currentLang === 'de' ? 'en' : 'de');
+        });
+
+        // Theme initialization from localStorage
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('theme-light');
+        } else if (savedTheme === 'dark') {
+            document.body.classList.add('theme-dark');
+        }
+
+        // Display error banner if redirected back with ?error=1
+        if (window.location.search.includes('error=1')) {
+            document.getElementById('errorBanner').style.display = 'block';
+        }
+
+        // Apply initial language
+        applyLanguage(currentLang);
+    </script>
+</body>
+</html>

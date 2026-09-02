@@ -1,0 +1,48 @@
+# ----------------------------------------------------------------------
+# Rewrite & Session Setup
+# ----------------------------------------------------------------------
+RewriteEngine On
+
+Session On
+SessionCookieName solar_session path=/webapp/; Secret=YourSecretKeyHereChangeMe
+SessionMaxAge 604800
+
+# ----------------------------------------------------------------------
+# Form Authentication Setup
+# ----------------------------------------------------------------------
+AuthType Form
+AuthName "Geschützter Bereich"
+AuthFormProvider file
+AuthUserFile /usr/local/websecure/.htpasswd
+
+AuthFormLoginRequiredLocation "/webapp/login.html"
+AuthFormLoginSuccessLocation "/webapp/index.html"
+
+# Protect the subfolder by default
+Require valid-user
+
+# ----------------------------------------------------------------------
+# Virtual Login Endpoint & Unprotected Resources
+# ----------------------------------------------------------------------
+# Handle POST request to /webapp/dologin virtually
+<Files "dologin">
+    SetHandler form-login-handler
+    AuthFormLoginRequiredLocation "/webapp/login.html?error=1"
+</Files>
+
+# Route virtual /webapp/dologin requests to the handler file
+RewriteCond %{REQUEST_URI} ^/webapp/dologin$
+RewriteRule ^dologin$ - [H=form-login-handler]
+
+# Allow public access to login page
+<Files "login.html">
+    Require all granted
+</Files>
+
+# Preserve existing icon public access rules
+<FilesMatch "^(apple-touch-icon|favicon).*\.(png|ico|svg)$">
+    Require all granted
+    <IfModule mod_headers.c>
+        Header set Access-Control-Allow-Origin "*"
+    </IfModule>
+</FilesMatch>

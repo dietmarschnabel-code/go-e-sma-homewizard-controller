@@ -71,6 +71,15 @@ If the charger CSV cannot be read, the converter logs a warning and continues
 with the Netz-NÖ data. Without `-goe`, charger values remain zero apart from
 the configured charger offset in daily output.
 
+## Python tools
+
+`convert-past-records-to-p1.py` reads a P1 meter CSV, interpolates missing
+daily P1 values, and writes the processed data as monthly CSV files.
+
+`update-charger.py` updates existing CSV files with fixed daily charger values
+calculated from a supplied monthly charger total, while preserving the other
+meter data.
+
 ## Compile
 
 Run these commands from the repository root:
