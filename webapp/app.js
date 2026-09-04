@@ -2,26 +2,22 @@
    Solar Energy Dashboard - Main Application Logic (app.js)
    ========================================================================== */
 
-let currentView = 'daily'; // 'daily', 'monthly', 'yearly', 'total'
+let currentView = 'daily';
 let chartInstance = null;
 let statusClockInterval = null;
 
-// Target Start Date of PV System (Year, Month - 1, Day) -> Sept 27, 2011
 const SYSTEM_START_DATE = new Date(2011, 8, 27); 
 
-// Helper for i18n fallback if translation function is not present
 function translate(key) {
     return (typeof t === 'function') ? t(key) : key;
 }
 
-// Parse date input string "YYYY-MM-DD" safely without UTC timezone shifts
 function parseLocalDate(dateString) {
     if (!dateString) return new Date();
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
 }
 
-// Populate Year Selector Dropdown
 function initYearSelector() {
     const yearSelect = document.getElementById('year-select');
     if (!yearSelect) return;
@@ -37,7 +33,6 @@ function initYearSelector() {
     }
 }
 
-// --- THEME MANAGEMENT ---
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(savedTheme, false);
@@ -91,7 +86,6 @@ function switchView(viewMode) {
     updateDashboard();
 }
 
-// --- DATE NAVIGATION LOGIC ---
 function navigateDate(direction) {
     if (currentView === 'daily') {
         const datePicker = document.getElementById('date-select');
@@ -170,7 +164,6 @@ async function renderDailyView() {
     
     gridEl.textContent = `${Math.abs(gridPower)} W`;
     gridEl.style.color = gridPower > 0 ? 'var(--import-red)' : (gridPower < 0 ? 'var(--export-green)' : 'var(--text-main)');
-    
     statusEl.textContent = gridPower > 0 ? translate('importingFromGrid') : (gridPower < 0 ? translate('exportingToGrid') : translate('balanced'));
 
     const importToday = (latestP1 && firstP1) ? Math.max(0, latestP1.import_kwh - firstP1.import_kwh) : 0;
@@ -295,7 +288,6 @@ async function renderMonthlyView() {
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
     document.getElementById('grid-metric').textContent = `${selfConsumedPct} %`;
     document.getElementById('grid-metric').style.color = 'var(--text-main)';
-    
     document.getElementById('grid-status').textContent = `${selfConsumed.toFixed(1)} ${translate('usedLocally')}`;
 
     drawChart(labels, [
@@ -309,7 +301,6 @@ async function renderMonthlyView() {
 // --- YEARLY VIEW ---
 async function renderYearlyView() {
     const year = parseInt(document.getElementById('year-select').value, 10);
-    
     const langLocale = (typeof currentLang !== 'undefined' && currentLang === 'de') ? 'de-DE' : 'en-US';
     const monthNames = Array.from({ length: 12 }, (_, i) => 
         new Date(year, i, 1).toLocaleDateString(langLocale, { month: 'short' })
@@ -365,7 +356,6 @@ async function renderYearlyView() {
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
     document.getElementById('grid-metric').textContent = `${selfConsumedPct} %`;
     document.getElementById('grid-metric').style.color = 'var(--text-main)';
-    
     document.getElementById('grid-status').textContent = `${selfConsumed.toFixed(0)} ${translate('usedLocally')}`;
 
     drawChart(monthNames, [
@@ -376,7 +366,7 @@ async function renderYearlyView() {
     ], translate('unitKwhPerMonth'));
 }
 
-// --- OPTIMIZED TOTAL VIEW WITH LOCAL STORAGE CACHING ---
+// --- TOTAL VIEW ---
 async function renderTotalView() {
     const currentYear = new Date().getFullYear();
     const startYear = SYSTEM_START_DATE.getFullYear();
@@ -386,7 +376,6 @@ async function renderTotalView() {
         years.push(y);
     }
 
-    // Retrieve cached totals for historical years
     const cachedTotals = JSON.parse(localStorage.getItem('solar_annual_totals') || '{}');
 
     const pvSeries = [];
@@ -396,18 +385,15 @@ async function renderTotalView() {
 
     let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
 
-    // Process each year sequentially or via cached lookup
     for (const year of years) {
         let yPV = 0, yImport = 0, yExport = 0, yCharger = 0;
 
-        // Use cache for past years, always fetch live for the current year
         if (year < currentYear && cachedTotals[year]) {
             yPV = cachedTotals[year].pv;
             yImport = cachedTotals[year].import;
             yExport = cachedTotals[year].export;
             yCharger = cachedTotals[year].charger;
         } else {
-            // Fetch 12 months for this year
             const monthlyPromises = [];
             for (let m = 1; m <= 12; m++) {
                 monthlyPromises.push(Promise.all([
@@ -427,7 +413,6 @@ async function renderTotalView() {
                 });
             });
 
-            // Cache closed historical years permanently
             if (year < currentYear) {
                 cachedTotals[year] = { pv: yPV, import: yImport, export: yExport, charger: yCharger };
                 localStorage.setItem('solar_annual_totals', JSON.stringify(cachedTotals));
@@ -445,7 +430,6 @@ async function renderTotalView() {
         totalCharger += yCharger;
     }
 
-    // Update UI Elements
     document.getElementById('kpi-pv-title').textContent = translate('pvGenTotal');
     document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
     document.getElementById('kpi-import-title').textContent = translate('importTotal');
@@ -461,7 +445,6 @@ async function renderTotalView() {
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
     document.getElementById('grid-metric').textContent = `${selfConsumedPct} %`;
     document.getElementById('grid-metric').style.color = 'var(--text-main)';
-    
     document.getElementById('grid-status').textContent = `${(selfConsumed / 1000).toFixed(1)} MWh ${translate('usedLocally')}`;
 
     drawChart(years.map(String), [
@@ -472,7 +455,6 @@ async function renderTotalView() {
     ], translate('unitKwhPerYear'));
 }
 
-// Chart Rendering Engine with Dynamic Theme Integration
 function drawChart(labels, datasets, yAxisTitle) {
     const canvas = document.getElementById('energyChart');
     if (!canvas) return;
@@ -549,7 +531,7 @@ function toggleChartFullscreen() {
     }
 }
 
-// --- STATUS MODAL LOGIC ---
+// --- STATUS MODAL & LED STATUS LOGIC ---
 async function toggleStatusModal() {
     const modal = document.getElementById('status-modal');
     if (!modal) return;
@@ -575,6 +557,51 @@ function startStatusClock() {
     statusClockInterval = setInterval(updateTime, 1000);
 }
 
+function getMinutesSinceLastRecord(records) {
+    if (!records || records.length === 0) return Infinity;
+
+    const lastRecord = records[records.length - 1];
+    const timeStr = lastRecord.timeOnly;
+
+    if (!timeStr || !timeStr.includes(':')) return Infinity;
+
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const now = new Date();
+    
+    const recordTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+
+    const diffMs = now - recordTime;
+    return diffMs > 0 ? diffMs / (1000 * 60) : 0;
+}
+
+function calculateSystemDataStatus(p1Data, pvData) {
+    const p1AgeMins = getMinutesSinceLastRecord(p1Data);
+    const pvAgeMins = getMinutesSinceLastRecord(pvData);
+
+    let p1Status = 'green';
+    if (p1AgeMins > 11) {
+        p1Status = 'red';
+    } else if (p1AgeMins > 6) {
+        p1Status = 'yellow';
+    }
+
+    let pvStatus = 'green';
+    if (pvAgeMins > 11) {
+        pvStatus = 'red';
+    } else if (pvAgeMins > 17) {
+        pvStatus = 'yellow';
+    }
+
+    // Red > Yellow > Green Priority Logic
+    if (p1Status === 'red' || pvStatus === 'red') {
+        return 'status-red';
+    }
+    if (p1Status === 'yellow' || pvStatus === 'yellow') {
+        return 'status-yellow';
+    }
+    return 'status-green';
+}
+
 async function updateSystemStatusData() {
     const now = new Date();
     
@@ -590,6 +617,13 @@ async function updateSystemStatusData() {
         fetchP1DailyData(now),
         fetchPVDailyData(now)
     ]);
+
+    // Update LED bar state
+    const ledContainer = document.getElementById('status-led-bar');
+    if (ledContainer) {
+        const overallStatusClass = calculateSystemDataStatus(p1Data, pvData);
+        ledContainer.className = 'led-bar-container ' + overallStatusClass;
+    }
 
     const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
     const latestPV = pvData.length > 0 ? pvData[pvData.length - 1] : null;
@@ -640,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 5 * 60 * 1000);
 });
 
-// Keyboard Navigation Support
+// Keyboard Navigation
 document.addEventListener('keydown', (e) => {
     if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
