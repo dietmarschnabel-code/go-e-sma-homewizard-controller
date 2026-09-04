@@ -43,7 +43,7 @@ const translations = {
 
         // Status Modal & Theme Switcher Labels
         systemStatusBtn: "Status",
-        systemStatus: "System Status",
+        systemStatus: "Actual Status / Counters",
         themeLabel: "Dashboard Theme",
         themeDark: "Dark",
         themeLight: "Light",
@@ -114,7 +114,7 @@ const translations = {
 
         // Status Modal & Theme Switcher Labels
         systemStatusBtn: "Status",
-        systemStatus: "Systemstatus",
+        systemStatus: "Status / Zähler",
         themeLabel: "Dashboard Design",
         themeDark: "Dunkel",
         themeLight: "Hell",
