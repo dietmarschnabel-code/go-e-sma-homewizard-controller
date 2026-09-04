@@ -531,7 +531,7 @@ function toggleChartFullscreen() {
     }
 }
 
-// --- STATUS MODAL & LED STATUS LOGIC ---
+// --- STATUS MODAL & SERVER-SYNCED LED STATUS LOGIC ---
 async function toggleStatusModal() {
     const modal = document.getElementById('status-modal');
     if (!modal) return;
@@ -557,7 +557,10 @@ function startStatusClock() {
     statusClockInterval = setInterval(updateTime, 1000);
 }
 
-function getMinutesSinceLastRecord(records) {
+/**
+ * Calculates timestamp age in minutes evaluated against Server System Time.
+ */
+function getMinutesSinceLastRecord(records, serverTime) {
     if (!records || records.length === 0) return Infinity;
 
     const lastRecord = records[records.length - 1];
@@ -566,17 +569,27 @@ function getMinutesSinceLastRecord(records) {
     if (!timeStr || !timeStr.includes(':')) return Infinity;
 
     const [hours, minutes] = timeStr.split(':').map(Number);
-    const now = new Date();
+    const baseDate = serverTime ? new Date(serverTime) : new Date();
     
-    const recordTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+    const recordTime = new Date(
+        baseDate.getFullYear(), 
+        baseDate.getMonth(), 
+        baseDate.getDate(), 
+        hours, 
+        minutes, 
+        0
+    );
 
-    const diffMs = now - recordTime;
+    const diffMs = baseDate - recordTime;
     return diffMs > 0 ? diffMs / (1000 * 60) : 0;
 }
 
-function calculateSystemDataStatus(p1Data, pvData) {
-    const p1AgeMins = getMinutesSinceLastRecord(p1Data);
-    const pvAgeMins = getMinutesSinceLastRecord(pvData);
+/**
+ * Calculates LED status using Red > Yellow > Green priority logic evaluated relative to server system clock.
+ */
+function calculateSystemDataStatus(p1Data, pvData, serverTime) {
+    const p1AgeMins = getMinutesSinceLastRecord(p1Data, serverTime);
+    const pvAgeMins = getMinutesSinceLastRecord(pvData, serverTime);
 
     let p1Status = 'green';
     if (p1AgeMins > 11) {
@@ -603,7 +616,26 @@ function calculateSystemDataStatus(p1Data, pvData) {
 }
 
 async function updateSystemStatusData() {
-    const now = new Date();
+    let serverTime = null;
+
+    const [p1Data, pvData] = await Promise.all([
+        fetchP1DailyData(new Date()),
+        fetchPVDailyData(new Date())
+    ]);
+
+    // Fetch Date header from server to align with server system clock
+    try {
+        const response = await fetch(window.location.href, { method: 'HEAD' });
+        const serverDateHeader = response.headers.get('date');
+        if (serverDateHeader) {
+            serverTime = new Date(serverDateHeader);
+        }
+    } catch (e) {
+        console.warn('Could not retrieve server time header, falling back to local client clock', e);
+        serverTime = new Date();
+    }
+
+    const now = serverTime || new Date();
     
     const diffTime = Math.abs(now - SYSTEM_START_DATE);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -613,15 +645,10 @@ async function updateSystemStatusData() {
         daysEl.textContent = `${diffDays.toLocaleString()} ${translate('daysUnit')}`;
     }
 
-    const [p1Data, pvData] = await Promise.all([
-        fetchP1DailyData(now),
-        fetchPVDailyData(now)
-    ]);
-
-    // Update LED bar state
+    // Update LED bar state relative to server time
     const ledContainer = document.getElementById('status-led-bar');
     if (ledContainer) {
-        const overallStatusClass = calculateSystemDataStatus(p1Data, pvData);
+        const overallStatusClass = calculateSystemDataStatus(p1Data, pvData, serverTime);
         ledContainer.className = 'led-bar-container ' + overallStatusClass;
     }
 
