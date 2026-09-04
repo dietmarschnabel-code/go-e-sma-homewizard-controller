@@ -1,10 +1,8 @@
 /**
  * Multilingual Translation System (i18n)
- * Automatically defaults to German ('de') if listed as preferred by the browser.
  */
 const translations = {
     en: {
-        // Base Page Labels
         title: "Solar Energy Dashboard",
         daily: "Daily",
         monthly: "Monthly",
@@ -18,7 +16,6 @@ const translations = {
         exportToday: "Export Today",
         chargerToday: "EV Charged Today",
         
-        // Dynamic KPI Card Titles
         pvGenToday: "PV Generation (Today)",
         pvGenMonth: "PV Generation (Month)",
         pvGenYear: "PV Generation (Year)",
@@ -35,15 +32,14 @@ const translations = {
         chargerYear: "EV Charged (Year)",
         chargerTotal: "EV Charged (Total)",
 
-        // Grid & Status Indicators
         importingFromGrid: "Importing from Grid",
         exportingToGrid: "Exporting to Grid",
         balanced: "Balanced",
         usedLocally: "kWh used locally",
 
-        // Status Modal & Theme Switcher Labels
         systemStatusBtn: "Status",
         systemStatus: "Actual Status / Counters",
+        systemDataStatus: "Data Status:",
         themeLabel: "Dashboard Theme",
         themeDark: "Dark",
         themeLight: "Light",
@@ -55,7 +51,6 @@ const translations = {
         totalCharger: "Total EV Charged:",
         daysUnit: "days",
 
-        // Chart Legends & Axis Labels
         pvGenLabelW: "PV Generation (W)",
         gridPowerLabelW: "Grid Active Power (W)",
         chargerPowerLabelW: "EV Charger Power (W)",
@@ -68,14 +63,12 @@ const translations = {
         unitKwhPerMonth: "kWh / month",
         unitKwhPerYear: "kWh / year",
 
-        // Legacy / Generic Labels
         import: "Import",
         export: "Export",
         pvPower: "PV Power",
         gridPowerLabel: "Grid Power"
     },
     de: {
-        // Base Page Labels
         title: "Solar-Energie-Dashboard",
         daily: "Täglich",
         monthly: "Monatlich",
@@ -89,7 +82,6 @@ const translations = {
         exportToday: "Einspeisung heute",
         chargerToday: "E-Auto geladen heute",
 
-        // Dynamic KPI Card Titles
         pvGenToday: "PV-Erzeugung (Heute)",
         pvGenMonth: "PV-Erzeugung (Monat)",
         pvGenYear: "PV-Erzeugung (Jahr)",
@@ -106,15 +98,14 @@ const translations = {
         chargerYear: "E-Auto geladen (Jahr)",
         chargerTotal: "E-Auto geladen (Gesamt)",
 
-        // Grid & Status Indicators
         importingFromGrid: "Netzbezug",
         exportingToGrid: "Netzeinspeisung",
         balanced: "Ausgeglichen",
         usedLocally: "kWh eigenverbraucht",
 
-        // Status Modal & Theme Switcher Labels
         systemStatusBtn: "Status",
         systemStatus: "Status / Zähler",
+        systemDataStatus: "Datenstatus:",
         themeLabel: "Dashboard Design",
         themeDark: "Dunkel",
         themeLight: "Hell",
@@ -126,7 +117,6 @@ const translations = {
         totalCharger: "Gesamt E-Auto Geladen:",
         daysUnit: "Tage",
 
-        // Chart Legends & Axis Labels
         pvGenLabelW: "PV-Erzeugung (W)",
         gridPowerLabelW: "Netz-Wirkleistung (W)",
         chargerPowerLabelW: "E-Auto Ladeleistung (W)",
@@ -139,7 +129,6 @@ const translations = {
         unitKwhPerMonth: "kWh / Monat",
         unitKwhPerYear: "kWh / Jahr",
 
-        // Legacy / Generic Labels
         import: "Netzbezug",
         export: "Einspeisung",
         pvPower: "PV-Leistung",
@@ -147,42 +136,29 @@ const translations = {
     }
 };
 
-/**
- * Checks browser preferred language priority list.
- * Returns 'de' if German is listed before English or is the primary language.
- */
 function getPreferredLanguage() {
     const userLangs = navigator.languages || [navigator.language || navigator.userLanguage || 'en'];
-    
     for (const lang of userLangs) {
         const code = lang.toLowerCase().split('-')[0];
         if (code === 'de') return 'de';
         if (code === 'en') return 'en';
     }
-    return 'en'; // Default fallback
+    return 'en';
 }
 
 const currentLang = getPreferredLanguage();
 
-/**
- * Returns translated string for a given key, defaulting to English or key name
- */
 function t(key) {
     return (translations[currentLang] && translations[currentLang][key]) 
         || (translations['en'] && translations['en'][key]) 
         || key;
 }
 
-/**
- * Applies translations to all HTML elements containing [data-i18n]
- */
 function applyTranslations() {
     document.documentElement.lang = currentLang;
-    
     document.querySelectorAll('[data-i18n]').forEach(element => {
         const key = element.getAttribute('data-i18n');
         const translation = t(key);
-        
         if (element.tagName === 'INPUT' && element.type === 'placeholder') {
             element.placeholder = translation;
         } else {
