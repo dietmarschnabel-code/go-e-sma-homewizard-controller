@@ -531,7 +531,7 @@ function toggleChartFullscreen() {
     }
 }
 
-// --- STATUS MODAL & SERVER-SYNCED LED STATUS LOGIC ---
+// --- STATUS MODAL & SERVER-SYNCED INDEPENDENT LED STATUS ---
 async function toggleStatusModal() {
     const modal = document.getElementById('status-modal');
     if (!modal) return;
@@ -558,7 +558,7 @@ function startStatusClock() {
 }
 
 /**
- * Calculates timestamp age in minutes evaluated against Server System Time.
+ * Calculates timestamp age in minutes relative to server system time.
  */
 function getMinutesSinceLastRecord(records, serverTime) {
     if (!records || records.length === 0) return Infinity;
@@ -569,52 +569,35 @@ function getMinutesSinceLastRecord(records, serverTime) {
     if (!timeStr || !timeStr.includes(':')) return Infinity;
 
     const [hours, minutes] = timeStr.split(':').map(Number);
-    const baseDate = serverTime ? new Date(serverTime) : new Date();
-    
+    const now = serverTime ? new Date(serverTime) : new Date();
+
     const recordTime = new Date(
-        baseDate.getFullYear(), 
-        baseDate.getMonth(), 
-        baseDate.getDate(), 
+        now.getFullYear(), 
+        now.getMonth(), 
+        now.getDate(), 
         hours, 
         minutes, 
         0
     );
 
-    const diffMs = baseDate - recordTime;
-    return diffMs > 0 ? diffMs / (1000 * 60) : 0;
+    const diffMs = now.getTime() - recordTime.getTime();
+    const diffMins = diffMs / (1000 * 60);
+
+    return diffMins < 0 ? 0 : diffMins;
 }
 
 /**
- * Calculates LED status using Red > Yellow > Green priority logic evaluated relative to server system clock.
+ * Returns single LED color class based on age in minutes.
  */
-function calculateSystemDataStatus(p1Data, pvData, serverTime) {
-    const p1AgeMins = getMinutesSinceLastRecord(p1Data, serverTime);
-    const pvAgeMins = getMinutesSinceLastRecord(pvData, serverTime);
-
-    let p1Status = 'green';
-    if (p1AgeMins > 11) {
-        p1Status = 'red';
-    } else if (p1AgeMins > 6) {
-        p1Status = 'yellow';
-    }
-
-    let pvStatus = 'green';
-    if (pvAgeMins > 11) {
-        pvStatus = 'red';
-    } else if (pvAgeMins > 17) {
-        pvStatus = 'yellow';
-    }
-
-    // Red > Yellow > Green Priority Logic
-    if (p1Status === 'red' || pvStatus === 'red') {
-        return 'status-red';
-    }
-    if (p1Status === 'yellow' || pvStatus === 'yellow') {
-        return 'status-yellow';
-    }
-    return 'status-green';
+function getSingleLedStatus(ageMins) {
+    if (ageMins > 11) return 'led-red';
+    if (ageMins > 6) return 'led-yellow';
+    return 'led-green';
 }
 
+/**
+ * Updates status modal elements for Photovoltaic and Smart Meter lines independently.
+ */
 async function updateSystemStatusData() {
     let serverTime = null;
 
@@ -623,7 +606,7 @@ async function updateSystemStatusData() {
         fetchPVDailyData(new Date())
     ]);
 
-    // Fetch Date header from server to align with server system clock
+    // Retrieve system server time via HEAD request
     try {
         const response = await fetch(window.location.href, { method: 'HEAD' });
         const serverDateHeader = response.headers.get('date');
@@ -631,12 +614,40 @@ async function updateSystemStatusData() {
             serverTime = new Date(serverDateHeader);
         }
     } catch (e) {
-        console.warn('Could not retrieve server time header, falling back to local client clock', e);
+        console.warn('Could not retrieve server time header, falling back to local clock', e);
         serverTime = new Date();
     }
 
+    // 1. Photovoltaic Line
+    const latestPV = pvData.length > 0 ? pvData[pvData.length - 1] : null;
+    const pvTimeEl = document.getElementById('pv-status-time');
+    const pvLedEl = document.getElementById('pv-status-led');
+
+    if (latestPV && latestPV.timeOnly) {
+        if (pvTimeEl) pvTimeEl.textContent = latestPV.timeOnly;
+        const pvAge = getMinutesSinceLastRecord(pvData, serverTime);
+        if (pvLedEl) pvLedEl.className = `status-led ${getSingleLedStatus(pvAge)}`;
+    } else {
+        if (pvTimeEl) pvTimeEl.textContent = '--:--';
+        if (pvLedEl) pvLedEl.className = 'status-led led-red';
+    }
+
+    // 2. Smart Meter (P1) Line
+    const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
+    const p1TimeEl = document.getElementById('p1-status-time');
+    const p1LedEl = document.getElementById('p1-status-led');
+
+    if (latestP1 && latestP1.timeOnly) {
+        if (p1TimeEl) p1TimeEl.textContent = latestP1.timeOnly;
+        const p1Age = getMinutesSinceLastRecord(p1Data, serverTime);
+        if (p1LedEl) p1LedEl.className = `status-led ${getSingleLedStatus(p1Age)}`;
+    } else {
+        if (p1TimeEl) p1TimeEl.textContent = '--:--';
+        if (p1LedEl) p1LedEl.className = 'status-led led-red';
+    }
+
+    // 3. Totals & System Days Counter
     const now = serverTime || new Date();
-    
     const diffTime = Math.abs(now - SYSTEM_START_DATE);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
@@ -644,16 +655,6 @@ async function updateSystemStatusData() {
     if (daysEl) {
         daysEl.textContent = `${diffDays.toLocaleString()} ${translate('daysUnit')}`;
     }
-
-    // Update LED bar state relative to server time
-    const ledContainer = document.getElementById('status-led-bar');
-    if (ledContainer) {
-        const overallStatusClass = calculateSystemDataStatus(p1Data, pvData, serverTime);
-        ledContainer.className = 'led-bar-container ' + overallStatusClass;
-    }
-
-    const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
-    const latestPV = pvData.length > 0 ? pvData[pvData.length - 1] : null;
 
     const grandTotalImport = latestP1 ? latestP1.import_kwh : 0;
     const grandTotalExport = latestP1 ? latestP1.export_kwh : 0;
