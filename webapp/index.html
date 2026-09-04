@@ -22,7 +22,7 @@
     <link rel="icon" href="favicon-512.png" type="image/png" sizes="512x512">
     <link rel="apple-touch-icon" href="apple-touch-icon.png" crossorigin="use-credentials">
 
-    <!-- iOS Touch Icon (No crossorigin attribute, 180x180 solid PNG) -->
+    <!-- iOS Touch Icon -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     
     <!-- Stylesheets & External Libraries -->
@@ -37,7 +37,6 @@
             <h1 data-i18n="title">Solar Energy Dashboard</h1>
             
             <div class="header-controls">
-                <!-- Date picker is now placed on the left side for stable alignment -->
                 <div class="date-picker-container">
                     <button id="btn-prev-date" class="date-nav-btn" onclick="navigateDate(-1)" aria-label="Previous">&lsaquo;</button>
                     <input type="date" id="date-select" class="picker-input">
@@ -46,7 +45,6 @@
                     <button id="btn-next-date" class="date-nav-btn" onclick="navigateDate(1)" aria-label="Next">&rsaquo;</button>
                 </div>
 
-                <!-- View toggles placed to the right of the date controls -->
                 <div class="view-toggle">
                     <button id="btn-daily" class="toggle-btn active" onclick="switchView('daily')" data-i18n="daily">Daily</button>
                     <button id="btn-monthly" class="toggle-btn" onclick="switchView('monthly')" data-i18n="monthly">Monthly</button>
@@ -105,6 +103,16 @@
                 <button class="close-btn" onclick="toggleStatusModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- Status LED Line Indicator -->
+                <div class="status-row">
+                    <span data-i18n="systemDataStatus">Data Status:</span>
+                    <div class="led-bar-container" id="status-led-bar">
+                        <span class="led-circle" id="led-1"></span>
+                        <span class="led-circle" id="led-2"></span>
+                        <span class="led-circle" id="led-3"></span>
+                    </div>
+                </div>
+                <hr class="modal-divider">
                 <div class="status-row">
                     <span data-i18n="themeLabel">Theme:</span>
                     <div class="theme-toggle">
