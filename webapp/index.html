@@ -1,172 +1,168 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title data-i18n="title">Solar Energy Dashboard</title>
-    
-    <!-- PWA Manifest & Colors -->
-    <link rel="manifest" href="manifest.json" type="application/manifest+json" crossorigin="use-credentials">
-    <meta name="theme-color" content="#000000">
-    
-    <!-- Web App Meta Tags -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SolarDash">
-
-    <!-- Icons -->
-    <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="32x32">
-    <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
-    <link rel="icon" href="favicon-192.png" type="image/png" sizes="192x192">
-    <link rel="icon" href="favicon-512.png" type="image/png" sizes="512x512">
-    <link rel="apple-touch-icon" href="apple-touch-icon.png" crossorigin="use-credentials">
-
-    <!-- iOS Touch Icon -->
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-    
-    <!-- Stylesheets & External Libraries -->
-    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Energy Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-    <div class="dashboard-container">
-        <!-- Header & Controls -->
-        <header class="dashboard-header">
-            <h1 data-i18n="title">Solar Energy Dashboard</h1>
-            
-            <div class="header-controls">
-                <div class="date-picker-container">
-                    <button id="btn-prev-date" class="date-nav-btn" onclick="navigateDate(-1)" aria-label="Previous">&lsaquo;</button>
-                    <input type="date" id="date-select" class="picker-input">
-                    <input type="month" id="month-select" class="picker-input hidden">
-                    <select id="year-select" class="picker-input hidden"></select>
-                    <button id="btn-next-date" class="date-nav-btn" onclick="navigateDate(1)" aria-label="Next">&rsaquo;</button>
-                </div>
-
-                <div class="view-toggle">
-                    <button id="btn-daily" class="toggle-btn active" onclick="switchView('daily')" data-i18n="daily">Daily</button>
-                    <button id="btn-monthly" class="toggle-btn" onclick="switchView('monthly')" data-i18n="monthly">Monthly</button>
-                    <button id="btn-yearly" class="toggle-btn" onclick="switchView('yearly')" data-i18n="yearly">Yearly</button>
-                    <button id="btn-total" class="toggle-btn" onclick="switchView('total')" data-i18n="total">Total</button>
-                    <button id="btn-status" class="toggle-btn" onclick="toggleStatusModal()" data-i18n="systemStatusBtn">ℹ️ Status</button>
-                </div>
-            </div>
-        </header>
-
-        <!-- KPI Cards Grid -->
-        <div class="kpi-grid">
-            <div class="card">
-                <h3 id="kpi-pv-title" data-i18n="pvGen">PV Generation</h3>
-                <p id="pv-metric" class="metric-value">0 W</p>
-            </div>
-            
-            <div class="card">
-                <h3 id="kpi-grid-title" data-i18n="gridPower">Grid Active Power</h3>
-                <p id="grid-metric" class="metric-value">0 W</p>
-                <p id="grid-status" class="status-text" data-i18n="loading">Loading...</p>
-            </div>
-            
-            <div class="card">
-                <h3 id="kpi-import-title" data-i18n="importToday">Import Today</h3>
-                <p id="import-metric" class="metric-value">0.0 kWh</p>
-            </div>
-            
-            <div class="card">
-                <h3 id="kpi-export-title" data-i18n="exportToday">Export Today</h3>
-                <p id="export-metric" class="metric-value">0.0 kWh</p>
-            </div>
-
-            <div class="card">
-                <h3 id="kpi-charger-title" data-i18n="chargerToday">EV Charged Today</h3>
-                <p id="charger-metric" class="metric-value">0.0 kWh</p>
-            </div>
+    <!-- Header / Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-brand">
+            <h1>Solar Energy Dashboard</h1>
         </div>
+
+        <!-- View Navigation Toggles -->
+        <div class="view-toggle">
+            <button id="btn-daily" class="toggle-btn active" onclick="switchView('daily')">Daily</button>
+            <button id="btn-monthly" class="toggle-btn" onclick="switchView('monthly')">Monthly</button>
+            <button id="btn-yearly" class="toggle-btn" onclick="switchView('yearly')">Yearly</button>
+            <button id="btn-total" class="toggle-btn" onclick="switchView('total')">Total</button>
+        </div>
+
+        <!-- Controls Container (Date Pickers, Theme, Status) -->
+        <div class="nav-controls">
+            <!-- Date Navigation Picker -->
+            <div class="date-picker-container">
+                <button class="nav-arrow" onclick="navigateDate(-1)">&larr;</button>
+                <input type="date" id="date-select" class="picker-input">
+                <input type="month" id="month-select" class="picker-input hidden">
+                <select id="year-select" class="picker-input hidden"></select>
+                <button class="nav-arrow" onclick="navigateDate(1)">&rarr;</button>
+            </div>
+
+            <!-- Theme Switcher -->
+            <div class="theme-toggle">
+                <button id="theme-btn-dark" class="theme-btn active" onclick="setTheme('dark')">Dark</button>
+                <button id="theme-btn-light" class="theme-btn" onclick="setTheme('light')">Light</button>
+            </div>
+
+            <!-- Status Modal Trigger Button -->
+            <button class="status-btn" onclick="toggleStatusModal()">System Status</button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="dashboard-container">
+        
+        <!-- KPI Metrics Grid -->
+        <section class="kpi-grid">
+            <!-- PV Generation Card -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span id="kpi-pv-title" class="kpi-title">PV Generation</span>
+                </div>
+                <div id="pv-metric" class="kpi-value">0.0 kWh</div>
+            </div>
+
+            <!-- Grid Power / Self-Consumption Card -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span id="kpi-grid-title" class="kpi-title">Grid Active Power</span>
+                </div>
+                <div id="grid-metric" class="kpi-value">0 W</div>
+                <div id="grid-status" class="kpi-subtitle">Balanced</div>
+            </div>
+
+            <!-- Grid Import Card -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span id="kpi-import-title" class="kpi-title">Grid Import</span>
+                </div>
+                <div id="import-metric" class="kpi-value">0.0 kWh</div>
+            </div>
+
+            <!-- Grid Export Card -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span id="kpi-export-title" class="kpi-title">Grid Export</span>
+                </div>
+                <div id="export-metric" class="kpi-value">0.0 kWh</div>
+            </div>
+
+            <!-- EV Charger Card -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span id="kpi-charger-title" class="kpi-title">EV Charger</span>
+                </div>
+                <div id="charger-metric" class="kpi-value">0.0 kWh</div>
+            </div>
+        </section>
 
         <!-- Chart Section -->
-        <div id="chart-section" class="chart-section card">
-            <div class="chart-header-actions">
-                <button class="toggle-btn" onclick="toggleChartFullscreen()" data-i18n="fullscreen">⛶ Fullscreen</button>
+        <section id="chart-section" class="chart-card">
+            <div class="chart-header">
+                <h2>Energy Overview</h2>
+                <button class="fullscreen-btn" onclick="toggleChartFullscreen()">Fullscreen</button>
             </div>
-            <div class="chart-container">
+            <div class="chart-wrapper">
                 <canvas id="energyChart"></canvas>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- Status Modal Popup -->
-    <div id="status-modal" class="modal hidden">
-        <div class="modal-content card">
+    </main>
+
+    <!-- System Status Modal -->
+    <div id="status-modal" class="modal-overlay hidden">
+        <div class="modal-content">
             <div class="modal-header">
-                <h2 data-i18n="systemStatus">System Status</h2>
-                <button class="close-btn" onclick="toggleStatusModal()">&times;</button>
+                <h3>System Status</h3>
+                <button class="modal-close" onclick="toggleStatusModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Status LED Line Indicator -->
-                <div class="status-row">
-                    <span data-i18n="systemDataStatus">Data Status:</span>
-                    <div class="led-bar-container" id="status-led-bar">
-                        <span class="led-circle" id="led-1"></span>
-                        <span class="led-circle" id="led-2"></span>
-                        <span class="led-circle" id="led-3"></span>
+                <div class="status-clock-container">
+                    <span id="status-clock" class="status-clock">00:00:00</span>
+                </div>
+
+                <!-- Independent Device Status Rows -->
+                <div class="status-rows">
+                    <!-- Photovoltaic Line -->
+                    <div class="status-row">
+                        <span class="status-label">Photovoltaic:</span>
+                        <span id="pv-status-time" class="status-timestamp">--:--</span>
+                        <span id="pv-status-led" class="status-led led-green"></span>
+                    </div>
+
+                    <!-- Smart Meter Line -->
+                    <div class="status-row">
+                        <span class="status-label">Smart Meter:</span>
+                        <span id="p1-status-time" class="status-timestamp">--:--</span>
+                        <span id="p1-status-led" class="status-led led-green"></span>
                     </div>
                 </div>
-                <hr class="modal-divider">
-                <div class="status-row">
-                    <span data-i18n="themeLabel">Theme:</span>
-                    <div class="theme-toggle">
-                        <button id="theme-btn-dark" class="theme-btn active" onclick="setTheme('dark')" data-i18n="themeDark">Dark</button>
-                        <button id="theme-btn-light" class="theme-btn" onclick="setTheme('light')" data-i18n="themeLight">Light</button>
+
+                <!-- System Lifetime Metrics -->
+                <div class="status-metrics">
+                    <div class="status-metric-item">
+                        <span class="metric-label">Operating Days:</span>
+                        <span id="status-days" class="metric-value">--</span>
                     </div>
-                </div>
-                <hr class="modal-divider">
-                <div class="status-row">
-                    <span data-i18n="localTime">Local Time:</span>
-                    <strong id="status-clock">--:--:--</strong>
-                </div>
-                <div class="status-row">
-                    <span data-i18n="operatingDays">System Uptime:</span>
-                    <strong id="status-days">0 days</strong>
-                </div>
-                <hr class="modal-divider">
-                <div class="status-row">
-                    <span data-i18n="totalPvGen">Total PV Generation:</span>
-                    <strong id="status-pv-total">0 kWh</strong>
-                </div>
-                <div class="status-row">
-                    <span data-i18n="totalImport">Total Grid Import:</span>
-                    <strong id="status-import-total">0 kWh</strong>
-                </div>
-                <div class="status-row">
-                    <span data-i18n="totalExport">Total Grid Export:</span>
-                    <strong id="status-export-total">0 kWh</strong>
-                </div>
-                <div class="status-row">
-                    <span data-i18n="totalCharger">Total EV Charged:</span>
-                    <strong id="status-charger-total">0 kWh</strong>
+                    <div class="status-metric-item">
+                        <span class="metric-label">PV Lifetime Total:</span>
+                        <span id="status-pv-total" class="metric-value">-- kWh</span>
+                    </div>
+                    <div class="status-metric-item">
+                        <span class="metric-label">Import Lifetime Total:</span>
+                        <span id="status-import-total" class="metric-value">-- kWh</span>
+                    </div>
+                    <div class="status-metric-item">
+                        <span class="metric-label">Export Lifetime Total:</span>
+                        <span id="status-export-total" class="metric-value">-- kWh</span>
+                    </div>
+                    <div class="status-metric-item">
+                        <span class="metric-label">Charger Lifetime Total:</span>
+                        <span id="status-charger-total" class="metric-value">-- kWh</span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Internationalization Script -->
-    <script src="i18n.js"></script>
-    
-    <!-- Data Scripts -->
-    <script src="pv.js"></script>
-    <script src="p1.js"></script>
-    
-    <!-- App Logic -->
+    <!-- Application Logic Scripts -->
     <script src="app.js"></script>
-    
-    <!-- Authenticated Service Worker Registration -->
-    <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js', { credentials: 'include' })
-            .then(() => console.log('Service Worker Registered (Authenticated)'))
-            .catch(err => console.error('SW Error:', err));
-    }
-    </script>
 </body>
 </html>
