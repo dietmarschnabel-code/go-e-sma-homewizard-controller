@@ -178,19 +178,30 @@ async function deriveDailyDistribution(referenceDate = new Date()) {
     }
 
     const dailyRecords = await Promise.all(dates.map(date => fetchPVDailyData(date)));
-    const hourlyProduction = {};
-    dailyRecords.flat().forEach(record => {
-        const hour = parseInt(record.timeOnly.substring(0, 2), 10);
-        if (!Number.isInteger(hour) || record.pv_power_w <= 0) return;
-        hourlyProduction[hour] = (hourlyProduction[hour] || 0) + record.pv_power_w;
+    const averageHourlyShare = {};
+    let validDays = 0;
+
+    dailyRecords.forEach(records => {
+        const hourlyProduction = {};
+        records.forEach(record => {
+            const hour = parseInt(record.timeOnly.substring(0, 2), 10);
+            if (!Number.isInteger(hour) || record.pv_power_w <= 0) return;
+            hourlyProduction[hour] = (hourlyProduction[hour] || 0) + record.pv_power_w;
+        });
+
+        const totalProduction = Object.values(hourlyProduction).reduce((sum, value) => sum + value, 0);
+        if (totalProduction <= 0) return;
+        validDays++;
+        Object.entries(hourlyProduction).forEach(([hour, value]) => {
+            averageHourlyShare[hour] = (averageHourlyShare[hour] || 0) + value / totalProduction;
+        });
     });
 
-    const totalProduction = Object.values(hourlyProduction).reduce((sum, value) => sum + value, 0);
-    if (totalProduction <= 0) return {};
-    Object.keys(hourlyProduction).forEach(hour => {
-        hourlyProduction[hour] /= totalProduction;
+    if (validDays === 0) return {};
+    Object.keys(averageHourlyShare).forEach(hour => {
+        averageHourlyShare[hour] /= validDays;
     });
-    return hourlyProduction;
+    return averageHourlyShare;
 }
 
 async function deriveYearlyDistribution(referenceDate = new Date()) {
@@ -221,11 +232,10 @@ async function deriveYearlyDistribution(referenceDate = new Date()) {
 async function fetchPVDistributions() {
     if (!pvDistributionPromise) {
         pvDistributionPromise = Promise.all([
-            fetch('/pv/daily-distribution.csv').then(response => response.ok ? response.text() : ''),
             fetch('/pv/yearly-distribution.csv').then(response => response.ok ? response.text() : '')
-        ]).then(async ([dailyText, yearlyText]) => {
+        ]).then(async ([yearlyText]) => {
             const [daily, yearly] = await Promise.all([
-                dailyText ? parseDistributionCSV(dailyText, 'daily') : deriveDailyDistribution(),
+                deriveDailyDistribution(),
                 yearlyText ? parseDistributionCSV(yearlyText, 'yearly') : deriveYearlyDistribution()
             ]);
             return { daily, yearly };

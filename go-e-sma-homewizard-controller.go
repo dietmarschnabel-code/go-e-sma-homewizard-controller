@@ -32,7 +32,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -674,71 +673,6 @@ func writePVDistribution(path string, rows [][]string) error {
 	return os.Rename(temporaryPath, path)
 }
 
-func createDailyPVDistribution(dir string, now time.Time) error {
-	type datedFile struct {
-		date time.Time
-		path string
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-
-	files := make([]datedFile, 0)
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasPrefix(name, "pv_data-") || !strings.HasSuffix(name, ".csv") {
-			continue
-		}
-		date, err := time.Parse("20060102", strings.TrimSuffix(strings.TrimPrefix(name, "pv_data-"), ".csv"))
-		if err == nil && date.Before(now) {
-			files = append(files, datedFile{date: date, path: filepath.Join(dir, name)})
-		}
-	}
-	startOfToday := now.Truncate(24 * time.Hour)
-	completedFiles := files[:0]
-	for _, file := range files {
-		if file.date.Before(startOfToday) {
-			completedFiles = append(completedFiles, file)
-		}
-	}
-	files = completedFiles
-	sort.Slice(files, func(i, j int) bool { return files[i].date.After(files[j].date) })
-	if len(files) > 7 {
-		files = files[:7]
-	}
-
-	hourlyProduction := make(map[int]float64)
-	for _, file := range files {
-		readPVCSVRows(file.path, 2, func(row []string, power float64) {
-			if len(row) == 0 || !strings.Contains(row[0], " ") || power <= 0 {
-				return
-			}
-			timePart := strings.SplitN(row[0], " ", 2)[1]
-			hour, err := strconv.Atoi(strings.SplitN(timePart, ":", 2)[0])
-			if err == nil && hour >= 0 && hour <= 23 {
-				hourlyProduction[hour] += power
-			}
-		})
-	}
-
-	var total float64
-	for _, value := range hourlyProduction {
-		total += value
-	}
-	if total == 0 {
-		return fmt.Errorf("no PV daily data found")
-	}
-
-	rows := [][]string{{"hour", "share"}}
-	for hour := 0; hour <= 23; hour++ {
-		if value, ok := hourlyProduction[hour]; ok {
-			rows = append(rows, []string{strconv.Itoa(hour), strconv.FormatFloat(value/total, 'f', 8, 64)})
-		}
-	}
-	return writePVDistribution(filepath.Join(dir, "daily-distribution.csv"), rows)
-}
-
 func createYearlyPVDistribution(dir string, now time.Time) error {
 	monthlyProduction := make(map[int]float64)
 	monthCounts := make(map[int]int)
@@ -778,7 +712,6 @@ func ensurePVDistributions(cfg Config) {
 	}
 	now := time.Now()
 	for name, create := range map[string]func(string, time.Time) error{
-		"daily-distribution.csv":  createDailyPVDistribution,
 		"yearly-distribution.csv": createYearlyPVDistribution,
 	} {
 		path := filepath.Join(cfg.PVDataDir, name)
