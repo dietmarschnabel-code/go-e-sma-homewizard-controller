@@ -24,6 +24,64 @@ function parseLocalDate(dateString) {
     return new Date(year, month - 1, day);
 }
 
+function setMetric(metricId, value, unit, forecastValue = null, decimals = 1) {
+    const metricEl = document.getElementById(metricId);
+    if (metricEl) metricEl.textContent = `${value.toFixed(decimals)} ${unit}`;
+
+    const forecastEl = document.getElementById(metricId.replace('-metric', '-forecast'));
+    if (!forecastEl) return;
+
+    if (forecastValue !== null && Number.isFinite(forecastValue)) {
+        forecastEl.textContent = `${translate('forecast')} ${forecastValue.toFixed(decimals)} ${unit}`;
+        forecastEl.classList.remove('hidden');
+    } else {
+        forecastEl.textContent = '';
+        forecastEl.classList.add('hidden');
+    }
+}
+
+function getElapsedDayFraction(now = new Date()) {
+    const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    return Math.max(1 / 24, Math.min(1, seconds / 86400));
+}
+
+function getPeriodProgress(period, date = new Date()) {
+    if (period === 'day') return getElapsedDayFraction(date);
+
+    const start = new Date(date.getFullYear(), period === 'month' ? date.getMonth() : 0, 1);
+    const end = period === 'month'
+        ? new Date(date.getFullYear(), date.getMonth() + 1, 1)
+        : new Date(date.getFullYear() + 1, 0, 1);
+    const elapsed = Math.max(0, date - start);
+    const duration = end - start;
+    return Math.max(1 / (duration / 86400000), Math.min(1, elapsed / duration));
+}
+
+function forecastValue(value, period, date = new Date()) {
+    const progress = getPeriodProgress(period, date);
+    return value > 0 ? value / progress : null;
+}
+
+function typicalPVForecast(period, date, distributions) {
+    const monthlyKWh = distributions.yearly[date.getMonth() + 1];
+    if (!Number.isFinite(monthlyKWh)) return null;
+    if (period === 'month') return monthlyKWh;
+    if (period === 'year') {
+        return Object.values(distributions.yearly).reduce((sum, value) => sum + value, 0);
+    }
+    if (period === 'day') {
+        return monthlyKWh / new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    }
+    return null;
+}
+
+function typicalPVHourlyPower(date, hour, distributions) {
+    const dailyKWh = typicalPVForecast('day', date, distributions);
+    const hourlyShare = distributions.daily[hour];
+    if (!Number.isFinite(dailyKWh) || !Number.isFinite(hourlyShare)) return null;
+    return dailyKWh * hourlyShare * 1000;
+}
+
 function initYearSelector() {
     const yearSelect = document.getElementById('year-select');
     if (!yearSelect) return;
@@ -149,10 +207,11 @@ async function renderDailyView() {
     const month = selectedDate.getMonth() + 1;
     const day = selectedDate.getDate();
 
-    const [p1Data, pvData, pvMonthly] = await Promise.all([
+    const [p1Data, pvData, pvMonthly, distributions] = await Promise.all([
         fetchP1DailyData(selectedDate),
         fetchPVDailyData(selectedDate),
-        fetchPVMonthlyData(year, month)
+        fetchPVMonthlyData(year, month),
+        fetchPVDistributions()
     ]);
 
     const pvTitleEl = document.getElementById('kpi-pv-title');
@@ -167,8 +226,10 @@ async function renderDailyView() {
     if (chargerTitleEl) chargerTitleEl.textContent = translate('chargerToday');
 
     const dailyPVTotal = pvMonthly[day] || 0;
-    const pvMetricEl = document.getElementById('pv-metric');
-    if (pvMetricEl) pvMetricEl.textContent = `${dailyPVTotal.toFixed(1)} kWh`;
+    const now = new Date();
+    const isToday = selectedDate.getFullYear() === now.getFullYear()
+        && selectedDate.getMonth() === now.getMonth()
+        && selectedDate.getDate() === now.getDate();
 
     const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
     const firstP1 = p1Data.length > 0 ? p1Data[0] : null;
@@ -189,12 +250,10 @@ async function renderDailyView() {
     const exportToday = (latestP1 && firstP1) ? Math.max(0, latestP1.export_kwh - firstP1.export_kwh) : 0;
     const chargerToday = (latestP1 && firstP1) ? Math.max(0, (latestP1.charger_total_kwh || 0) - (firstP1.charger_total_kwh || 0)) : 0;
 
-    const impMetricEl = document.getElementById('import-metric');
-    if (impMetricEl) impMetricEl.textContent = `${importToday.toFixed(1)} kWh`;
-    const expMetricEl = document.getElementById('export-metric');
-    if (expMetricEl) expMetricEl.textContent = `${exportToday.toFixed(1)} kWh`;
-    const chgMetricEl = document.getElementById('charger-metric');
-    if (chgMetricEl) chgMetricEl.textContent = `${chargerToday.toFixed(1)} kWh`;
+    setMetric('pv-metric', dailyPVTotal, 'kWh', isToday ? typicalPVForecast('day', now, distributions) : null);
+    setMetric('import-metric', importToday, 'kWh', isToday ? forecastValue(importToday, 'day', now) : null);
+    setMetric('export-metric', exportToday, 'kWh', isToday ? forecastValue(exportToday, 'day', now) : null);
+    setMetric('charger-metric', chargerToday, 'kWh', isToday ? forecastValue(chargerToday, 'day', now) : null);
 
     const timeMap = new Map();
     
@@ -222,6 +281,17 @@ async function renderDailyView() {
 
     const labels = Array.from(timeMap.keys()).sort();
     
+    const dailyForecast = isToday && Object.keys(distributions.daily).length > 0 ? {
+        label: translate('forecast'),
+        data: labels.map(time => typicalPVHourlyPower(selectedDate, parseInt(time.substring(0, 2), 10), distributions)),
+        borderColor: '#fbbf24',
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        type: 'line',
+        fill: false
+    } : null;
+
     drawChart(labels, [
         { 
             label: translate('pvGenLabelW'), 
@@ -256,7 +326,8 @@ async function renderDailyView() {
             type: 'line', 
             fill: false, 
             tension: 0.15 
-        }
+        },
+        ...(dailyForecast ? [dailyForecast] : [])
     ], translate('unitWatts'));
 }
 
@@ -269,9 +340,10 @@ async function renderMonthlyView() {
     const month = parseInt(monthStr, 10);
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    const [pvMonthly, p1Monthly] = await Promise.all([
+    const [pvMonthly, p1Monthly, distributions] = await Promise.all([
         fetchPVMonthlyData(year, month),
-        fetchP1MonthlyData(year, month)
+        fetchP1MonthlyData(year, month),
+        fetchPVDistributions()
     ]);
 
     const labels = [];
@@ -304,10 +376,12 @@ async function renderMonthlyView() {
     document.getElementById('kpi-export-title').textContent = translate('exportMonth');
     document.getElementById('kpi-charger-title').textContent = translate('chargerMonth');
 
-    document.getElementById('pv-metric').textContent = `${totalPV.toFixed(1)} kWh`;
-    document.getElementById('import-metric').textContent = `${totalImport.toFixed(1)} kWh`;
-    document.getElementById('export-metric').textContent = `${totalExport.toFixed(1)} kWh`;
-    document.getElementById('charger-metric').textContent = `${totalCharger.toFixed(1)} kWh`;
+    const now = new Date();
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+    setMetric('pv-metric', totalPV, 'kWh', isCurrentMonth ? typicalPVForecast('month', now, distributions) : null);
+    setMetric('import-metric', totalImport, 'kWh', isCurrentMonth ? forecastValue(totalImport, 'month', now) : null);
+    setMetric('export-metric', totalExport, 'kWh', isCurrentMonth ? forecastValue(totalExport, 'month', now) : null);
+    setMetric('charger-metric', totalCharger, 'kWh', isCurrentMonth ? forecastValue(totalCharger, 'month', now) : null);
 
     const selfConsumed = Math.max(0, totalPV - totalExport);
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
@@ -337,6 +411,7 @@ async function renderYearlyView() {
         new Date(year, i, 1).toLocaleDateString(langLocale, { month: 'short' })
     );
 
+    const [distributions] = await Promise.all([fetchPVDistributions()]);
     const monthlyPromises = [];
     for (let m = 1; m <= 12; m++) {
         monthlyPromises.push(Promise.all([fetchPVMonthlyData(year, m), fetchP1MonthlyData(year, m)]));
@@ -378,10 +453,12 @@ async function renderYearlyView() {
     document.getElementById('kpi-export-title').textContent = translate('exportYear');
     document.getElementById('kpi-charger-title').textContent = translate('chargerYear');
 
-    document.getElementById('pv-metric').textContent = `${totalPV.toFixed(0)} kWh`;
-    document.getElementById('import-metric').textContent = `${totalImport.toFixed(0)} kWh`;
-    document.getElementById('export-metric').textContent = `${totalExport.toFixed(0)} kWh`;
-    document.getElementById('charger-metric').textContent = `${totalCharger.toFixed(0)} kWh`;
+    const now = new Date();
+    const isCurrentYear = year === now.getFullYear();
+    setMetric('pv-metric', totalPV, 'kWh', isCurrentYear ? typicalPVForecast('year', now, distributions) : null, 0);
+    setMetric('import-metric', totalImport, 'kWh', isCurrentYear ? forecastValue(totalImport, 'year', now) : null, 0);
+    setMetric('export-metric', totalExport, 'kWh', isCurrentYear ? forecastValue(totalExport, 'year', now) : null, 0);
+    setMetric('charger-metric', totalCharger, 'kWh', isCurrentYear ? forecastValue(totalCharger, 'year', now) : null, 0);
 
     const selfConsumed = Math.max(0, totalPV - totalExport);
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';
@@ -471,10 +548,10 @@ async function renderTotalView() {
     document.getElementById('kpi-export-title').textContent = translate('exportTotal');
     document.getElementById('kpi-charger-title').textContent = translate('chargerTotal');
 
-    document.getElementById('pv-metric').textContent = `${(totalPV / 1000).toFixed(1)} MWh`;
-    document.getElementById('import-metric').textContent = `${(totalImport / 1000).toFixed(1)} MWh`;
-    document.getElementById('export-metric').textContent = `${(totalExport / 1000).toFixed(1)} MWh`;
-    document.getElementById('charger-metric').textContent = `${(totalCharger / 1000).toFixed(1)} MWh`;
+    setMetric('pv-metric', totalPV / 1000, 'MWh');
+    setMetric('import-metric', totalImport / 1000, 'MWh');
+    setMetric('export-metric', totalExport / 1000, 'MWh');
+    setMetric('charger-metric', totalCharger / 1000, 'MWh');
 
     const selfConsumed = Math.max(0, totalPV - totalExport);
     const selfConsumedPct = totalPV > 0 ? ((selfConsumed / totalPV) * 100).toFixed(1) : '0.0';

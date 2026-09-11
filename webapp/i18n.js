@@ -34,6 +34,7 @@ const translations = {
         chargerMonth: "EV Charged (Month)",
         chargerYear: "EV Charged (Year)",
         chargerTotal: "EV Charged (Total)",
+        forecast: "Forecast:",
 
         // Grid & Status Indicators
         importingFromGrid: "Importing from Grid",
@@ -107,6 +108,7 @@ const translations = {
         chargerMonth: "E-Auto geladen (Monat)",
         chargerYear: "E-Auto geladen (Jahr)",
         chargerTotal: "E-Auto geladen (Gesamt)",
+        forecast: "Prognose:",
 
         // Grid & Status Indicators
         importingFromGrid: "Netzbezug",

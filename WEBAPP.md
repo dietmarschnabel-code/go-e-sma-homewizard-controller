@@ -54,6 +54,18 @@ the month, both without separators.
 | P1 | `p1/p1_data-YYYYMMDD.csv` | `p1/p1_data-YYYYMM.csv` |
 | PV | `pv/pv_data-YYYYMMDD.csv` | `pv/pv_data-YYYYMM.csv` |
 
+Optional können typische PV-Verteilungen bereitgestellt werden:
+
+| Verteilung | Datei |
+| --- | --- |
+| Tagesprofil nach Stunde | `pv/daily-distribution.csv` |
+| Jahresprofil nach Monat | `pv/yearly-distribution.csv` |
+
+Fehlen diese Dateien, berechnet die Webapp das Tagesprofil automatisch aus
+den letzten sieben abgeschlossenen PV-Tagen und das Monatsprofil aus bis zu
+fünf vorherigen Jahren vorhandener PV-Monatsdateien. Die berechneten Werte
+werden nur im Browser verwendet und nicht als Dateien gespeichert.
+
 The P1 controller creates files with these names when its base path is
 `p1_data.csv` (the default). The JavaScript also accepts the older
 `p1-data-...` spelling and several SMA export names for compatibility; use

@@ -201,6 +201,13 @@ body {
     margin-bottom: 4px;
 }
 
+.forecast-value {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    margin-top: 2px;
+}
+
 .status-text {
     font-size: 0.85rem;
     color: var(--text-muted);

@@ -7,6 +7,8 @@
 // Negative values shift PV data backward (-15 moves 12:15 -> 11:45).
 const PV_TIME_OFFSET_MINUTES = -10;
 
+let pvDistributionPromise = null;
+
 function formatDateYYYYMMDD(date) {
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -134,4 +136,100 @@ async function fetchPVMonthlyData(year, month) {
         } catch (e) {}
     }
     return {};
+}
+
+function parseDistributionCSV(csvText, type) {
+    const result = {};
+    const lines = csvText.split(/\r?\n/);
+
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return;
+
+        const delimiter = trimmed.includes(';') ? ';' : (trimmed.includes('\t') ? '\t' : ',');
+        const parts = trimmed.split(delimiter).map(part => part.trim());
+        if (parts.length < 2) return;
+
+        const keyMatch = type === 'daily'
+            ? parts[0].match(/(?:^|\s)(\d{1,2})(?::\d{2})?/)
+            : parts[0].match(/^(\d{1,2})$/);
+        if (!keyMatch) return;
+
+        const key = parseInt(keyMatch[1], 10);
+        const value = parseFloat(parts[parts.length - 1].replace(',', '.'));
+        const validKey = type === 'daily' ? key >= 0 && key <= 23 : key >= 1 && key <= 12;
+        if (validKey && Number.isFinite(value) && value >= 0) result[key] = value;
+    });
+
+    const total = Object.values(result).reduce((sum, value) => sum + value, 0);
+    if (type === 'daily' && total > 0) {
+        Object.keys(result).forEach(key => { result[key] /= total; });
+    }
+    return result;
+}
+
+async function deriveDailyDistribution(referenceDate = new Date()) {
+    const dates = [];
+    for (let daysAgo = 1; daysAgo <= 7; daysAgo++) {
+        const date = new Date(referenceDate);
+        date.setHours(0, 0, 0, 0);
+        date.setDate(date.getDate() - daysAgo);
+        dates.push(date);
+    }
+
+    const dailyRecords = await Promise.all(dates.map(date => fetchPVDailyData(date)));
+    const hourlyProduction = {};
+    dailyRecords.flat().forEach(record => {
+        const hour = parseInt(record.timeOnly.substring(0, 2), 10);
+        if (!Number.isInteger(hour) || record.pv_power_w <= 0) return;
+        hourlyProduction[hour] = (hourlyProduction[hour] || 0) + record.pv_power_w;
+    });
+
+    const totalProduction = Object.values(hourlyProduction).reduce((sum, value) => sum + value, 0);
+    if (totalProduction <= 0) return {};
+    Object.keys(hourlyProduction).forEach(hour => {
+        hourlyProduction[hour] /= totalProduction;
+    });
+    return hourlyProduction;
+}
+
+async function deriveYearlyDistribution(referenceDate = new Date()) {
+    const monthlyProduction = {};
+    const monthCounts = {};
+    const firstYear = referenceDate.getFullYear() - 5;
+    const years = Array.from({ length: 5 }, (_, index) => firstYear + index);
+    const monthlyResults = await Promise.all(years.flatMap(year =>
+        Array.from({ length: 12 }, (_, monthIndex) =>
+            fetchPVMonthlyData(year, monthIndex + 1).then(values => ({ month: monthIndex + 1, values }))
+        )
+    ));
+
+    monthlyResults.forEach(({ month, values }) => {
+        const monthTotal = Object.values(values).reduce((sum, value) => sum + value, 0);
+        if (monthTotal > 0) {
+            monthlyProduction[month] = (monthlyProduction[month] || 0) + monthTotal;
+            monthCounts[month] = (monthCounts[month] || 0) + 1;
+        }
+    });
+
+    Object.keys(monthlyProduction).forEach(month => {
+        monthlyProduction[month] /= monthCounts[month];
+    });
+    return monthlyProduction;
+}
+
+async function fetchPVDistributions() {
+    if (!pvDistributionPromise) {
+        pvDistributionPromise = Promise.all([
+            fetch('/pv/daily-distribution.csv').then(response => response.ok ? response.text() : ''),
+            fetch('/pv/yearly-distribution.csv').then(response => response.ok ? response.text() : '')
+        ]).then(async ([dailyText, yearlyText]) => {
+            const [daily, yearly] = await Promise.all([
+                dailyText ? parseDistributionCSV(dailyText, 'daily') : deriveDailyDistribution(),
+                yearlyText ? parseDistributionCSV(yearlyText, 'yearly') : deriveYearlyDistribution()
+            ]);
+            return { daily, yearly };
+        }).catch(() => ({ daily: {}, yearly: {} }));
+    }
+    return pvDistributionPromise;
 }
