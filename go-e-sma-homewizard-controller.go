@@ -24,12 +24,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -56,6 +59,7 @@ type Config struct {
 	ChargerIP          string
 	P1IP               string
 	P1CSVPath          string
+	PVDataDir          string
 	SMALogPath         string
 	MaxPowerLimitWatts int
 	SafetyMarginWatts  int
@@ -129,6 +133,7 @@ func initConfig() Config {
 	flag.StringVar(&c.ChargerIP, "charger", "192.168.1.50", "IP address of the go-eCharger")
 	flag.StringVar(&c.P1IP, "p1", "192.168.1.60", "IP address of the HomeWizard P1 Meter")
 	flag.StringVar(&c.P1CSVPath, "p1-csv", "p1_data.csv", "Base path to the output P1 CSV log file (leave empty to disable)")
+	flag.StringVar(&c.PVDataDir, "pv-dir", "pv", "Directory containing PV CSV files and distribution output files (leave empty to disable)")
 	flag.StringVar(&c.SMALogPath, "sma-log", "C:\\temp\\sma-update.log", "Path to the SMA log file (leave empty to disable)")
 	flag.IntVar(&c.MaxPowerLimitWatts, "max-power", 10000, "Maximum power limit in watts")
 	flag.IntVar(&c.SafetyMarginWatts, "margin", 300, "Safety margin in watts")
@@ -148,6 +153,9 @@ func initConfig() Config {
 	}
 	if env := os.Getenv("P1_CSV_FILE"); env != "" {
 		c.P1CSVPath = env
+	}
+	if env := os.Getenv("PV_DATA_DIR"); env != "" {
+		c.PVDataDir = env
 	}
 	if env := os.Getenv("SMA_LOG_FILE"); env != "" {
 		c.SMALogPath = env
@@ -618,8 +626,176 @@ func runPVCharging(cfg Config) {
 	sendPVData(cfg, housePower, pvPowerW)
 }
 
+func parsePVCSVNumber(value string) (float64, bool) {
+	parsed, err := strconv.ParseFloat(strings.Replace(strings.TrimSpace(value), ",", ".", 1), 64)
+	return parsed, err == nil
+}
+
+func readPVCSVRows(path string, valueIndex int, callback func([]string, float64)) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	reader.Comma = ';'
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil || len(row) <= valueIndex {
+			continue
+		}
+		value, valid := parsePVCSVNumber(row[valueIndex])
+		if valid {
+			callback(row, value)
+		}
+	}
+	return nil
+}
+
+func writePVDistribution(path string, rows [][]string) error {
+	temporaryPath := path + ".tmp"
+	file, err := os.OpenFile(temporaryPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+
+	writer := csv.NewWriter(file)
+	writer.Comma = ';'
+	err = writer.WriteAll(rows)
+	file.Close()
+	if err != nil {
+		os.Remove(temporaryPath)
+		return err
+	}
+	return os.Rename(temporaryPath, path)
+}
+
+func createDailyPVDistribution(dir string, now time.Time) error {
+	type datedFile struct {
+		date time.Time
+		path string
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	files := make([]datedFile, 0)
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, "pv_data-") || !strings.HasSuffix(name, ".csv") {
+			continue
+		}
+		date, err := time.Parse("20060102", strings.TrimSuffix(strings.TrimPrefix(name, "pv_data-"), ".csv"))
+		if err == nil && date.Before(now) {
+			files = append(files, datedFile{date: date, path: filepath.Join(dir, name)})
+		}
+	}
+	startOfToday := now.Truncate(24 * time.Hour)
+	completedFiles := files[:0]
+	for _, file := range files {
+		if file.date.Before(startOfToday) {
+			completedFiles = append(completedFiles, file)
+		}
+	}
+	files = completedFiles
+	sort.Slice(files, func(i, j int) bool { return files[i].date.After(files[j].date) })
+	if len(files) > 7 {
+		files = files[:7]
+	}
+
+	hourlyProduction := make(map[int]float64)
+	for _, file := range files {
+		readPVCSVRows(file.path, 2, func(row []string, power float64) {
+			if len(row) == 0 || !strings.Contains(row[0], " ") || power <= 0 {
+				return
+			}
+			timePart := strings.SplitN(row[0], " ", 2)[1]
+			hour, err := strconv.Atoi(strings.SplitN(timePart, ":", 2)[0])
+			if err == nil && hour >= 0 && hour <= 23 {
+				hourlyProduction[hour] += power
+			}
+		})
+	}
+
+	var total float64
+	for _, value := range hourlyProduction {
+		total += value
+	}
+	if total == 0 {
+		return fmt.Errorf("no PV daily data found")
+	}
+
+	rows := [][]string{{"hour", "share"}}
+	for hour := 0; hour <= 23; hour++ {
+		if value, ok := hourlyProduction[hour]; ok {
+			rows = append(rows, []string{strconv.Itoa(hour), strconv.FormatFloat(value/total, 'f', 8, 64)})
+		}
+	}
+	return writePVDistribution(filepath.Join(dir, "daily-distribution.csv"), rows)
+}
+
+func createYearlyPVDistribution(dir string, now time.Time) error {
+	monthlyProduction := make(map[int]float64)
+	monthCounts := make(map[int]int)
+	for year := now.Year() - 5; year < now.Year(); year++ {
+		for month := 1; month <= 12; month++ {
+			path := filepath.Join(dir, fmt.Sprintf("pv_data-%04d%02d.csv", year, month))
+			var monthTotal float64
+			if err := readPVCSVRows(path, 2, func(_ []string, value float64) { monthTotal += value }); err != nil {
+				continue
+			}
+			if monthTotal > 0 {
+				monthlyProduction[month] += monthTotal
+				monthCounts[month]++
+			}
+		}
+	}
+
+	rows := [][]string{{"month", "production"}}
+	for month := 1; month <= 12; month++ {
+		if monthCounts[month] > 0 {
+			rows = append(rows, []string{strconv.Itoa(month), strconv.FormatFloat(monthlyProduction[month]/float64(monthCounts[month]), 'f', 3, 64)})
+		}
+	}
+	if len(rows) == 1 {
+		return fmt.Errorf("no PV yearly data found")
+	}
+	return writePVDistribution(filepath.Join(dir, "yearly-distribution.csv"), rows)
+}
+
+func ensurePVDistributions(cfg Config) {
+	if cfg.PVDataDir == "" {
+		return
+	}
+	if _, err := os.Stat(cfg.PVDataDir); err != nil {
+		debugLog(cfg, "PV data directory unavailable (%v)", err)
+		return
+	}
+	now := time.Now()
+	for name, create := range map[string]func(string, time.Time) error{
+		"daily-distribution.csv":  createDailyPVDistribution,
+		"yearly-distribution.csv": createYearlyPVDistribution,
+	} {
+		path := filepath.Join(cfg.PVDataDir, name)
+		if _, err := os.Stat(path); err == nil {
+			continue
+		}
+		if err := create(cfg.PVDataDir, now); err != nil {
+			debugLog(cfg, "Could not create %s: %v", path, err)
+		} else {
+			log.Printf("[INFO] Created PV distribution file: %s", path)
+		}
+	}
+}
+
 func main() {
 	cfg := initConfig()
+	ensurePVDistributions(cfg)
 	targetLimitWatts := cfg.MaxPowerLimitWatts - cfg.SafetyMarginWatts
 	wattPerAmp := Phases * Voltage
 

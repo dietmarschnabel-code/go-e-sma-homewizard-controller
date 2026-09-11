@@ -56,6 +56,7 @@ This project also contains a Windows-friendly Go implementation. The executable 
 - `-charger`: IP address of the go-e charger, default `192.168.1.50`
 - `-p1`: IP address of the HomeWizard P1 meter, default `192.168.1.60`
 - `-sma-log`: path to the SMA log file, default `C:\temp\sma-update.log`
+- `-pv-dir`: directory containing PV CSV files and generated distribution files, default `pv`
 - `-max-power`: maximum power limit in watts, default `10000`
 - `-margin`: safety margin in watts, default `300`
 - `-debug`: enables debug logging
@@ -73,6 +74,7 @@ The application also reads these environment variables if they are set:
 - `CHARGER_IP`
 - `P1_IP`
 - `SMA_LOG_FILE`
+- `PV_DATA_DIR`
 - `MAX_POWER_LIMIT_WATTS`
 - `SAFETY_MARGIN_WATTS`
 

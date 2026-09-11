@@ -64,7 +64,9 @@ Optional können typische PV-Verteilungen bereitgestellt werden:
 Fehlen diese Dateien, berechnet die Webapp das Tagesprofil automatisch aus
 den letzten sieben abgeschlossenen PV-Tagen und das Monatsprofil aus bis zu
 fünf vorherigen Jahren vorhandener PV-Monatsdateien. Die berechneten Werte
-werden nur im Browser verwendet und nicht als Dateien gespeichert.
+werden vom Controller beim Start erzeugt, sofern `PV_DATA_DIR` auf dieses
+Verzeichnis zeigt und die Dateien noch nicht vorhanden sind. Alternativ
+bleibt die Berechnung im Browser als Fallback aktiv.
 
 The P1 controller creates files with these names when its base path is
 `p1_data.csv` (the default). The JavaScript also accepts the older
