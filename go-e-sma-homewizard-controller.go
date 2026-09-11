@@ -626,7 +626,19 @@ func runPVCharging(cfg Config) {
 }
 
 func parsePVCSVNumber(value string) (float64, bool) {
-	parsed, err := strconv.ParseFloat(strings.Replace(strings.TrimSpace(value), ",", ".", 1), 64)
+	value = strings.TrimSpace(strings.TrimPrefix(value, "\ufeff"))
+	if strings.Contains(value, ",") && strings.Contains(value, ".") {
+		lastComma := strings.LastIndex(value, ",")
+		lastDot := strings.LastIndex(value, ".")
+		if lastComma > lastDot {
+			value = strings.ReplaceAll(strings.ReplaceAll(value, ".", ""), ",", ".")
+		} else {
+			value = strings.ReplaceAll(value, ",", "")
+		}
+	} else {
+		value = strings.Replace(value, ",", ".", 1)
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
 	return parsed, err == nil
 }
 
@@ -638,7 +650,30 @@ func readPVCSVRows(path string, valueIndex int, callback func([]string, float64)
 	defer file.Close()
 
 	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1
+	reader.LazyQuotes = true
+	reader.ReuseRecord = false
 	reader.Comma = ';'
+
+	firstLine, err := bufio.NewReader(file).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return err
+	}
+	if !strings.Contains(firstLine, ";") && strings.Contains(firstLine, ",") {
+		reader.Comma = ','
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	reader = csv.NewReader(file)
+	reader.FieldsPerRecord = -1
+	reader.LazyQuotes = true
+	reader.ReuseRecord = false
+	if strings.Contains(firstLine, ";") || strings.HasPrefix(strings.TrimSpace(firstLine), "sep=;") {
+		reader.Comma = ';'
+	} else {
+		reader.Comma = ','
+	}
 	for {
 		row, err := reader.Read()
 		if err == io.EOF {
@@ -680,7 +715,11 @@ func createYearlyPVDistribution(dir string, now time.Time) error {
 		for month := 1; month <= 12; month++ {
 			path := filepath.Join(dir, fmt.Sprintf("pv_data-%04d%02d.csv", year, month))
 			var monthTotal float64
-			if err := readPVCSVRows(path, 2, func(_ []string, value float64) { monthTotal += value }); err != nil {
+			if err := readPVCSVRows(path, 2, func(row []string, value float64) {
+				if _, err := time.Parse("02.01.2006", strings.TrimSpace(row[0])); err == nil {
+					monthTotal += value
+				}
+			}); err != nil {
 				continue
 			}
 			if monthTotal > 0 {
