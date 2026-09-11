@@ -82,6 +82,66 @@ function typicalPVHourlyPower(date, hour, distributions) {
     return dailyKWh * hourlyShare * 1000;
 }
 
+function interpolatedPVPower(date, time, distributions) {
+    const [hourString, minuteString] = time.split(':');
+    const hour = parseInt(hourString, 10);
+    const minute = parseInt(minuteString, 10);
+    const currentPower = typicalPVHourlyPower(date, hour, distributions);
+    const nextPower = typicalPVHourlyPower(date, (hour + 1) % 24, distributions);
+    if (!Number.isFinite(currentPower) || !Number.isFinite(nextPower) || !Number.isFinite(minute)) {
+        return null;
+    }
+    return currentPower + (nextPower - currentPower) * (minute / 60);
+}
+
+function getRemainingDailyPVShare(date, distributions) {
+    const currentHour = date.getHours();
+    const hourFractionRemaining = 1 - (date.getMinutes() * 60 + date.getSeconds()) / 3600;
+    return Object.entries(distributions.daily).reduce((sum, [hour, share]) => {
+        const hourNumber = parseInt(hour, 10);
+        if (hourNumber > currentHour) return sum + share;
+        if (hourNumber === currentHour) return sum + share * hourFractionRemaining;
+        return sum;
+    }, 0);
+}
+
+function correctedPVForecast(actualValue, period, date, distributions) {
+    if (!Number.isFinite(actualValue)) return null;
+
+    const typicalDaily = typicalPVForecast('day', date, distributions);
+    if (!Number.isFinite(typicalDaily)) return null;
+
+    if (period === 'day') {
+        const remainingShare = getRemainingDailyPVShare(date, distributions);
+        return actualValue + typicalDaily * remainingShare;
+    }
+
+    if (period === 'month') {
+        const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        const remainingDays = daysInMonth - date.getDate();
+        const remainingToday = typicalDaily * getRemainingDailyPVShare(date, distributions);
+        return actualValue + remainingToday + typicalDaily * remainingDays;
+    }
+
+    if (period === 'year') {
+        const currentMonth = date.getMonth() + 1;
+        const currentMonthTypical = distributions.yearly[currentMonth];
+        if (!Number.isFinite(currentMonthTypical)) return null;
+
+        const daysInMonth = new Date(date.getFullYear(), currentMonth, 0).getDate();
+        const elapsedDays = date.getDate() - 1;
+        const remainingCurrentMonth = currentMonthTypical * (
+            (daysInMonth - elapsedDays - 1) / daysInMonth
+        ) + typicalDaily * getRemainingDailyPVShare(date, distributions);
+        const remainingMonths = Object.entries(distributions.yearly)
+            .filter(([month]) => parseInt(month, 10) > currentMonth)
+            .reduce((sum, [, value]) => sum + value, 0);
+        return actualValue + remainingCurrentMonth + remainingMonths;
+    }
+
+    return null;
+}
+
 function initYearSelector() {
     const yearSelect = document.getElementById('year-select');
     if (!yearSelect) return;
@@ -250,7 +310,7 @@ async function renderDailyView() {
     const exportToday = (latestP1 && firstP1) ? Math.max(0, latestP1.export_kwh - firstP1.export_kwh) : 0;
     const chargerToday = (latestP1 && firstP1) ? Math.max(0, (latestP1.charger_total_kwh || 0) - (firstP1.charger_total_kwh || 0)) : 0;
 
-    setMetric('pv-metric', dailyPVTotal, 'kWh', isToday ? typicalPVForecast('day', now, distributions) : null);
+    setMetric('pv-metric', dailyPVTotal, 'kWh', isToday ? correctedPVForecast(dailyPVTotal, 'day', now, distributions) : null);
     setMetric('import-metric', importToday, 'kWh', isToday ? forecastValue(importToday, 'day', now) : null);
     setMetric('export-metric', exportToday, 'kWh', isToday ? forecastValue(exportToday, 'day', now) : null);
     setMetric('charger-metric', chargerToday, 'kWh', isToday ? forecastValue(chargerToday, 'day', now) : null);
@@ -283,12 +343,13 @@ async function renderDailyView() {
     
     const dailyForecast = isToday && Object.keys(distributions.daily).length > 0 ? {
         label: translate('forecast'),
-        data: labels.map(time => typicalPVHourlyPower(selectedDate, parseInt(time.substring(0, 2), 10), distributions)),
+        data: labels.map(time => interpolatedPVPower(selectedDate, time, distributions)),
         borderColor: '#fbbf24',
         borderWidth: 1.5,
         borderDash: [6, 4],
         pointRadius: 0,
         type: 'line',
+        tension: 0.2,
         fill: false
     } : null;
 
@@ -378,7 +439,7 @@ async function renderMonthlyView() {
 
     const now = new Date();
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-    setMetric('pv-metric', totalPV, 'kWh', isCurrentMonth ? typicalPVForecast('month', now, distributions) : null);
+    setMetric('pv-metric', totalPV, 'kWh', isCurrentMonth ? correctedPVForecast(totalPV, 'month', now, distributions) : null);
     setMetric('import-metric', totalImport, 'kWh', isCurrentMonth ? forecastValue(totalImport, 'month', now) : null);
     setMetric('export-metric', totalExport, 'kWh', isCurrentMonth ? forecastValue(totalExport, 'month', now) : null);
     setMetric('charger-metric', totalCharger, 'kWh', isCurrentMonth ? forecastValue(totalCharger, 'month', now) : null);
@@ -455,7 +516,7 @@ async function renderYearlyView() {
 
     const now = new Date();
     const isCurrentYear = year === now.getFullYear();
-    setMetric('pv-metric', totalPV, 'kWh', isCurrentYear ? typicalPVForecast('year', now, distributions) : null, 0);
+    setMetric('pv-metric', totalPV, 'kWh', isCurrentYear ? correctedPVForecast(totalPV, 'year', now, distributions) : null, 0);
     setMetric('import-metric', totalImport, 'kWh', isCurrentYear ? forecastValue(totalImport, 'year', now) : null, 0);
     setMetric('export-metric', totalExport, 'kWh', isCurrentYear ? forecastValue(totalExport, 'year', now) : null, 0);
     setMetric('charger-metric', totalCharger, 'kWh', isCurrentYear ? forecastValue(totalCharger, 'year', now) : null, 0);
