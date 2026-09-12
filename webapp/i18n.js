@@ -42,7 +42,7 @@ const translations = {
         yieldMonth: "Revenue (Month)",
         yieldYear: "Revenue (Year)",
         yieldTotal: "Revenue (Total)",
-        exportSubtext: "of which feed-in tariff:",
+        exportSubtext: "feed-in:",
 
         // Grid & Status Indicators
         importingFromGrid: "Importing from Grid",
@@ -124,7 +124,7 @@ const translations = {
         yieldMonth: "Ertrag (Monat)",
         yieldYear: "Ertrag (Jahr)",
         yieldTotal: "Ertrag (Gesamt)",
-        exportSubtext: "davon Einspeisevergütung:",
+        exportSubtext: "Einspeisung:",
 
         // Grid & Status Indicators
         importingFromGrid: "Netzbezug",

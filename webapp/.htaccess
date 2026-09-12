@@ -21,6 +21,12 @@ AuthFormLoginSuccessLocation "/webapp/index.html"
 # Protect the subfolder by default
 Require valid-user
 
+# Only these authenticated users may see financial yield values.
+# Extend the regular expression with the usernames that should have access.
+<IfModule mod_headers.c>
+    Header set X-Yield-Access "true" "expr=%{REMOTE_USER} =~ m#^(admin|energy-manager|dietmar)$#"
+</IfModule>
+
 # ----------------------------------------------------------------------
 # Virtual Login Endpoint & Unprotected Resources
 # ----------------------------------------------------------------------

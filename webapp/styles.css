@@ -179,6 +179,10 @@ body {
     width: 100%;
 }
 
+.kpi-grid:has(#yield-card.hidden) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .card {
     background-color: var(--bg-card);
     border-radius: 12px;

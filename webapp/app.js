@@ -5,6 +5,7 @@
 let currentView = 'daily';
 let chartInstance = null;
 let statusClockInterval = null;
+let canViewYield = false;
 
 const SYSTEM_START_DATE = new Date(2011, 8, 27); 
 
@@ -16,6 +17,22 @@ const DEFAULT_LED_YELLOW_MINS = 6;
 
 function translate(key) {
     return (typeof t === 'function') ? t(key) : key;
+}
+
+async function initializeYieldAccess() {
+    try {
+        const response = await fetch('index.html', {
+            method: 'HEAD',
+            credentials: 'same-origin',
+            cache: 'no-store'
+        });
+        canViewYield = response.headers.get('X-Yield-Access') === 'true';
+    } catch (error) {
+        canViewYield = false;
+    }
+
+    const yieldCard = document.getElementById('yield-card');
+    if (yieldCard) yieldCard.classList.toggle('hidden', !canViewYield);
 }
 
 function parseLocalDate(dateString) {
@@ -317,10 +334,12 @@ async function renderDailyView() {
     const feedInCompensation = exportToday * prices.exportPrice;
     const totalYield = feedInCompensation + (selfConsumedToday * prices.importPrice);
 
-    const yieldMetricEl = document.getElementById('yield-metric');
-    const yieldSubtextEl = document.getElementById('yield-subtext');
-    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
-    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${feedInCompensation.toFixed(2)} €`;
+    if (canViewYield) {
+        const yieldMetricEl = document.getElementById('yield-metric');
+        const yieldSubtextEl = document.getElementById('yield-subtext');
+        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${feedInCompensation.toFixed(2)} €`;
+    }
 
     setMetric('pv-metric', dailyPVTotal, 'kWh', isToday ? correctedPVForecast(dailyPVTotal, 'day', now, distributions) : null);
     setMetric('import-metric', importToday, 'kWh', isToday ? forecastValue(importToday, 'day', now) : null);
@@ -459,10 +478,12 @@ async function renderMonthlyView() {
     document.getElementById('kpi-export-title').textContent = translate('exportMonth');
     document.getElementById('kpi-charger-title').textContent = translate('chargerMonth');
 
-    const yieldMetricEl = document.getElementById('yield-metric');
-    const yieldSubtextEl = document.getElementById('yield-subtext');
-    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
-    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
+    if (canViewYield) {
+        const yieldMetricEl = document.getElementById('yield-metric');
+        const yieldSubtextEl = document.getElementById('yield-subtext');
+        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
+    }
 
     const now = new Date();
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
@@ -557,10 +578,12 @@ async function renderYearlyView() {
     document.getElementById('kpi-export-title').textContent = translate('exportYear');
     document.getElementById('kpi-charger-title').textContent = translate('chargerYear');
 
-    const yieldMetricEl = document.getElementById('yield-metric');
-    const yieldSubtextEl = document.getElementById('yield-subtext');
-    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
-    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
+    if (canViewYield) {
+        const yieldMetricEl = document.getElementById('yield-metric');
+        const yieldSubtextEl = document.getElementById('yield-subtext');
+        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
+    }
 
     const now = new Date();
     const isCurrentYear = year === now.getFullYear();
@@ -666,10 +689,12 @@ async function renderTotalView() {
     document.getElementById('kpi-export-title').textContent = translate('exportTotal');
     document.getElementById('kpi-charger-title').textContent = translate('chargerTotal');
 
-    const yieldMetricEl = document.getElementById('yield-metric');
-    const yieldSubtextEl = document.getElementById('yield-subtext');
-    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
-    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
+    if (canViewYield) {
+        const yieldMetricEl = document.getElementById('yield-metric');
+        const yieldSubtextEl = document.getElementById('yield-subtext');
+        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
+    }
 
     setMetric('pv-metric', totalPV / 1000, 'MWh');
     setMetric('import-metric', totalImport / 1000, 'MWh');
@@ -912,7 +937,7 @@ async function updateSystemStatusData() {
 }
 
 // Initialization & Event Binding
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     initYearSelector();
     startStatusClock();
@@ -934,6 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (monthPicker) monthPicker.addEventListener('change', updateDashboard);
     if (yearPicker) yearPicker.addEventListener('change', updateDashboard);
 
+    await initializeYieldAccess();
     updateDashboard();
 
     setInterval(() => { 

@@ -44,6 +44,53 @@ in `/p1/` and `/pv/` to be read, and should return the CSV files as plain
 text. HTTPS is recommended when the dashboard is accessed from another
 machine.
 
+## Required web server settings
+
+The included `.htaccess` is intended for Apache HTTP Server with these
+modules enabled:
+
+- `mod_auth_form`, `mod_authn_file`, `mod_authz_core`, and `mod_session` for
+    form login and sessions.
+- `mod_rewrite` for the virtual `/webapp/dologin` endpoint.
+- `mod_headers` for restricting financial yield values.
+
+The configured password file is `/usr/local/websecure/.htpasswd`. Create it
+with Apache's password tool and add one account for each permitted user, for
+example:
+
+```bash
+sudo mkdir -p /usr/local/websecure
+sudo htpasswd -c /usr/local/websecure/.htpasswd admin
+sudo htpasswd /usr/local/websecure/.htpasswd dashboard-user
+```
+
+Change the `Secret` value in `.htaccess` before using the webapp in
+production:
+
+```apache
+SessionCookieName solar_session path=/webapp/ Secret=replace-with-a-long-random-value
+```
+
+All authenticated users can view the dashboard. Financial yield values are
+shown only to usernames listed in the `X-Yield-Access` expression in
+`.htaccess`:
+
+```apache
+Header set X-Yield-Access "true" "expr=%{REMOTE_USER} =~ m#^(admin|energy-manager)$#"
+```
+
+Replace the usernames inside the regular expression with the accounts that
+should see yield values. Users not matching the expression can still use the
+dashboard, but the yield card remains hidden. Keep the `X-Yield-Access`
+response header rule unchanged because the webapp uses it to apply this
+permission.
+
+The `login.html` page and icons are public so unauthenticated visitors can
+reach the login form. The dashboard and its CSV data remain protected by
+`Require valid-user`. A simple server such as `python3 -m http.server` does
+not provide this authentication or permission behavior and should only be
+used for local, non-sensitive testing.
+
 ## Required filenames
 
 The dashboard uses these filenames. `YYYYMMDD` is the date and `YYYYMM` is
@@ -54,17 +101,17 @@ the month, both without separators.
 | P1 | `p1/p1_data-YYYYMMDD.csv` | `p1/p1_data-YYYYMM.csv` |
 | PV | `pv/pv_data-YYYYMMDD.csv` | `pv/pv_data-YYYYMM.csv` |
 
-Optional kann eine typische PV-Monatsverteilung bereitgestellt werden:
+An optional typical monthly PV distribution can be provided:
 
-| Verteilung | Datei |
+| Distribution | File |
 | --- | --- |
-| Jahresprofil nach Monat | `pv/yearly-distribution.csv` |
+| Yearly profile by month | `pv/yearly-distribution.csv` |
 
-Das Tagesprofil wird immer dynamisch im Browser aus dem Durchschnitt der
-letzten sieben abgeschlossenen PV-Tage berechnet. Dadurch werden die realen
-Sonnenauf- und -untergangszeiten der letzten Tage berücksichtigt. Das
-Monatsprofil wird aus der Datei oder, falls sie fehlt, aus bis zu fünf
-vorherigen Jahren vorhandener PV-Monatsdateien berechnet.
+The daily profile is always calculated dynamically in the browser from the
+average of the last seven completed PV days. This accounts for the actual
+sunrise and sunset times from recent days. The monthly profile is read from
+the file or, if the file is missing, calculated from available monthly PV
+files from up to five previous years.
 
 The P1 controller creates files with these names when its base path is
 `p1_data.csv` (the default). The JavaScript also accepts the older
