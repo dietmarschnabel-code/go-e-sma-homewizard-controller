@@ -36,6 +36,14 @@ const translations = {
         chargerTotal: "EV Charged (Total)",
         forecast: "Forecast:",
 
+        // Yield & Feed-in Labels
+        financialYield: "Revenue",
+        yieldToday: "Revenue Today",
+        yieldMonth: "Revenue (Month)",
+        yieldYear: "Revenue (Year)",
+        yieldTotal: "Revenue (Total)",
+        exportSubtext: "of which feed-in tariff:",
+
         // Grid & Status Indicators
         importingFromGrid: "Importing from Grid",
         exportingToGrid: "Exporting to Grid",
@@ -109,6 +117,14 @@ const translations = {
         chargerYear: "E-Auto geladen (Jahr)",
         chargerTotal: "E-Auto geladen (Gesamt)",
         forecast: "Prognose:",
+
+        // Yield & Feed-in Labels
+        financialYield: "Ertrag",
+        yieldToday: "Ertrag (Heute)",
+        yieldMonth: "Ertrag (Monat)",
+        yieldYear: "Ertrag (Jahr)",
+        yieldTotal: "Ertrag (Gesamt)",
+        exportSubtext: "davon Einspeisevergütung:",
 
         // Grid & Status Indicators
         importingFromGrid: "Netzbezug",

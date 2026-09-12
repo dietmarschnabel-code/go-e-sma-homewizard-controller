@@ -267,17 +267,20 @@ async function renderDailyView() {
     const month = selectedDate.getMonth() + 1;
     const day = selectedDate.getDate();
 
-    const [p1Data, pvData, pvMonthly, distributions] = await Promise.all([
+    const [p1Data, pvData, pvMonthly, distributions, prices] = await Promise.all([
         fetchP1DailyData(selectedDate),
         fetchPVDailyData(selectedDate),
         fetchPVMonthlyData(year, month),
-        fetchPVDistributions()
+        fetchPVDistributions(),
+        getPricesForDate(selectedDate)
     ]);
 
     const pvTitleEl = document.getElementById('kpi-pv-title');
     if (pvTitleEl) pvTitleEl.textContent = translate('pvGenToday');
     const gridTitleEl = document.getElementById('kpi-grid-title');
     if (gridTitleEl) gridTitleEl.textContent = translate('gridActivePower');
+    const yieldTitleEl = document.getElementById('kpi-yield-title');
+    if (yieldTitleEl) yieldTitleEl.textContent = translate('yieldToday');
     const importTitleEl = document.getElementById('kpi-import-title');
     if (importTitleEl) importTitleEl.textContent = translate('importToday');
     const exportTitleEl = document.getElementById('kpi-export-title');
@@ -309,6 +312,15 @@ async function renderDailyView() {
     const importToday = (latestP1 && firstP1) ? Math.max(0, latestP1.import_kwh - firstP1.import_kwh) : 0;
     const exportToday = (latestP1 && firstP1) ? Math.max(0, latestP1.export_kwh - firstP1.export_kwh) : 0;
     const chargerToday = (latestP1 && firstP1) ? Math.max(0, (latestP1.charger_total_kwh || 0) - (firstP1.charger_total_kwh || 0)) : 0;
+
+    const selfConsumedToday = Math.max(0, dailyPVTotal - exportToday);
+    const feedInCompensation = exportToday * prices.exportPrice;
+    const totalYield = feedInCompensation + (selfConsumedToday * prices.importPrice);
+
+    const yieldMetricEl = document.getElementById('yield-metric');
+    const yieldSubtextEl = document.getElementById('yield-subtext');
+    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${feedInCompensation.toFixed(2)} €`;
 
     setMetric('pv-metric', dailyPVTotal, 'kWh', isToday ? correctedPVForecast(dailyPVTotal, 'day', now, distributions) : null);
     setMetric('import-metric', importToday, 'kWh', isToday ? forecastValue(importToday, 'day', now) : null);
@@ -414,6 +426,7 @@ async function renderMonthlyView() {
     const chargerSeries = [];
 
     let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
+    let totalYield = 0, totalFeedInCompensation = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
         labels.push(`${day}`);
@@ -429,13 +442,27 @@ async function renderMonthlyView() {
         totalImport += p1.import_kwh;
         totalExport += p1.export_kwh;
         totalCharger += p1.charger_kwh;
+
+        const dateObj = new Date(year, month - 1, day);
+        const prices = await getPricesForDate(dateObj);
+        const selfConsumed = Math.max(0, pv - p1.export_kwh);
+        const feedIn = p1.export_kwh * prices.exportPrice;
+        
+        totalFeedInCompensation += feedIn;
+        totalYield += feedIn + (selfConsumed * prices.importPrice);
     }
 
     document.getElementById('kpi-pv-title').textContent = translate('pvGenMonth');
     document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
+    document.getElementById('kpi-yield-title').textContent = translate('yieldMonth');
     document.getElementById('kpi-import-title').textContent = translate('importMonth');
     document.getElementById('kpi-export-title').textContent = translate('exportMonth');
     document.getElementById('kpi-charger-title').textContent = translate('chargerMonth');
+
+    const yieldMetricEl = document.getElementById('yield-metric');
+    const yieldSubtextEl = document.getElementById('yield-subtext');
+    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
 
     const now = new Date();
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
@@ -486,8 +513,10 @@ async function renderYearlyView() {
     const chargerSeries = [];
 
     let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
+    let totalYield = 0, totalFeedInCompensation = 0;
 
-    monthlyResults.forEach(([pvMonth, p1Month]) => {
+    for (let m = 0; m < 12; m++) {
+        const [pvMonth, p1Month] = monthlyResults[m];
         let mPV = 0, mImport = 0, mExport = 0, mCharger = 0;
 
         Object.values(pvMonth).forEach(val => mPV += val);
@@ -506,13 +535,32 @@ async function renderYearlyView() {
         totalImport += mImport;
         totalExport += mExport;
         totalCharger += mCharger;
-    });
+
+        const daysInMonth = new Date(year, m + 1, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const pv = pvMonth[day] || 0;
+            const p1 = p1Month[day] || { export_kwh: 0 };
+            const dateObj = new Date(year, m, day);
+            const prices = await getPricesForDate(dateObj);
+            
+            const selfConsumed = Math.max(0, pv - p1.export_kwh);
+            const feedIn = p1.export_kwh * prices.exportPrice;
+            totalFeedInCompensation += feedIn;
+            totalYield += feedIn + (selfConsumed * prices.importPrice);
+        }
+    }
 
     document.getElementById('kpi-pv-title').textContent = translate('pvGenYear');
     document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
+    document.getElementById('kpi-yield-title').textContent = translate('yieldYear');
     document.getElementById('kpi-import-title').textContent = translate('importYear');
     document.getElementById('kpi-export-title').textContent = translate('exportYear');
     document.getElementById('kpi-charger-title').textContent = translate('chargerYear');
+
+    const yieldMetricEl = document.getElementById('yield-metric');
+    const yieldSubtextEl = document.getElementById('yield-subtext');
+    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
 
     const now = new Date();
     const isCurrentYear = year === now.getFullYear();
@@ -557,39 +605,47 @@ async function renderTotalView() {
     const chargerSeries = [];
 
     let totalPV = 0, totalImport = 0, totalExport = 0, totalCharger = 0;
+    let totalYield = 0, totalFeedInCompensation = 0;
 
     for (const year of years) {
         let yPV = 0, yImport = 0, yExport = 0, yCharger = 0;
 
-        if (year < currentYear && cachedTotals[year]) {
-            yPV = cachedTotals[year].pv;
-            yImport = cachedTotals[year].import;
-            yExport = cachedTotals[year].export;
-            yCharger = cachedTotals[year].charger;
-        } else {
-            const monthlyPromises = [];
-            for (let m = 1; m <= 12; m++) {
-                monthlyPromises.push(Promise.all([
-                    fetchPVMonthlyData(year, m), 
-                    fetchP1MonthlyData(year, m)
-                ]));
-            }
+        const monthlyPromises = [];
+        for (let m = 1; m <= 12; m++) {
+            monthlyPromises.push(Promise.all([
+                fetchPVMonthlyData(year, m), 
+                fetchP1MonthlyData(year, m)
+            ]));
+        }
 
-            const monthlyResults = await Promise.all(monthlyPromises);
+        const monthlyResults = await Promise.all(monthlyPromises);
 
-            monthlyResults.forEach(([pvMonth, p1Month]) => {
-                Object.values(pvMonth).forEach(val => yPV += val);
-                Object.values(p1Month).forEach(val => {
-                    yImport += val.import_kwh;
-                    yExport += val.export_kwh;
-                    yCharger += (val.charger_kwh || 0);
-                });
+        for (let m = 0; m < 12; m++) {
+            const [pvMonth, p1Month] = monthlyResults[m];
+            Object.values(pvMonth).forEach(val => yPV += val);
+            Object.values(p1Month).forEach(val => {
+                yImport += val.import_kwh;
+                yExport += val.export_kwh;
+                yCharger += (val.charger_kwh || 0);
             });
 
-            if (year < currentYear) {
-                cachedTotals[year] = { pv: yPV, import: yImport, export: yExport, charger: yCharger };
-                localStorage.setItem('solar_annual_totals', JSON.stringify(cachedTotals));
+            const daysInMonth = new Date(year, m + 1, 0).getDate();
+            for (let day = 1; day <= daysInMonth; day++) {
+                const pv = pvMonth[day] || 0;
+                const p1 = p1Month[day] || { export_kwh: 0 };
+                const dateObj = new Date(year, m, day);
+                const prices = await getPricesForDate(dateObj);
+
+                const selfConsumed = Math.max(0, pv - p1.export_kwh);
+                const feedIn = p1.export_kwh * prices.exportPrice;
+                totalFeedInCompensation += feedIn;
+                totalYield += feedIn + (selfConsumed * prices.importPrice);
             }
+        }
+
+        if (year < currentYear) {
+            cachedTotals[year] = { pv: yPV, import: yImport, export: yExport, charger: yCharger };
+            localStorage.setItem('solar_annual_totals', JSON.stringify(cachedTotals));
         }
 
         pvSeries.push(yPV);
@@ -605,9 +661,15 @@ async function renderTotalView() {
 
     document.getElementById('kpi-pv-title').textContent = translate('pvGenTotal');
     document.getElementById('kpi-grid-title').textContent = translate('selfConsumptionRate');
+    document.getElementById('kpi-yield-title').textContent = translate('yieldTotal');
     document.getElementById('kpi-import-title').textContent = translate('importTotal');
     document.getElementById('kpi-export-title').textContent = translate('exportTotal');
     document.getElementById('kpi-charger-title').textContent = translate('chargerTotal');
+
+    const yieldMetricEl = document.getElementById('yield-metric');
+    const yieldSubtextEl = document.getElementById('yield-subtext');
+    if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+    if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
 
     setMetric('pv-metric', totalPV / 1000, 'MWh');
     setMetric('import-metric', totalImport / 1000, 'MWh');

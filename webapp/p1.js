@@ -2,6 +2,62 @@
  * Handles HomeWizard P1 CSV Data Parsing for Daily, Monthly, and Yearly Views
  */
 
+let energyPricesCache = null;
+
+async function fetchEnergyPrices() {
+    if (energyPricesCache) return energyPricesCache;
+
+    try {
+        const res = await fetch('/p1/energy-prices.csv');
+        if (!res.ok) return [];
+        const text = await res.text();
+        const lines = text.trim().split(/\r?\n/);
+        const prices = [];
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#') || trimmed.toLowerCase().startsWith('valid') || trimmed.toLowerCase().startsWith('datum')) continue;
+            
+            const parts = trimmed.split(',').map(p => p.trim());
+            if (parts.length >= 3) {
+                const dateStr = parts[0];
+                const importPrice = parseFloat(parts[1]) || 0;
+                const exportPrice = parseFloat(parts[2]) || 0;
+                if (dateStr) {
+                    prices.push({
+                        date: parseLocalDate(dateStr),
+                        dateStr: dateStr,
+                        importPrice,
+                        exportPrice
+                    });
+                }
+            }
+        }
+        
+        prices.sort((a, b) => a.date - b.date);
+        energyPricesCache = prices;
+        return prices;
+    } catch (e) {
+        console.warn("energy-prices.csv konnte nicht geladen werden", e);
+        return [];
+    }
+}
+
+async function getPricesForDate(targetDate) {
+    const prices = await fetchEnergyPrices();
+    if (prices.length === 0) return { importPrice: 0, exportPrice: 0 };
+
+    let activePrice = prices[0];
+    for (const p of prices) {
+        if (targetDate >= p.date) {
+            activePrice = p;
+        } else {
+            break;
+        }
+    }
+    return activePrice;
+}
+
 function parseP1DailyCSV(csvText) {
     const lines = csvText.trim().split('\n');
     if (lines.length <= 1) return [];
