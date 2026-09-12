@@ -214,6 +214,9 @@ body {
     font-weight: bold;
     margin-bottom: 4px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .forecast-value {
@@ -296,8 +299,17 @@ body {
 .modal-content {
     width: 90%;
     max-width: 420px;
+    max-height: min(90vh, 760px);
     padding: 24px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-body {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal-header {
@@ -473,6 +485,10 @@ body {
         padding: 12px 10px;
     }
 
+    .modal-content {
+        max-height: 88vh;
+    }
+
     .dashboard-header {
         flex-direction: column;
         align-items: stretch;
@@ -515,20 +531,14 @@ body {
         text-align: center;
     }
 
-    /* Horizontal scroll container for small viewports */
     .kpi-grid {
-        display: flex;
-        overflow-x: auto;
-        scroll-snap-type: x mandatory;
+        grid-template-columns: repeat(2, 1fr);
         gap: 12px;
-        padding-bottom: 8px;
-        -webkit-overflow-scrolling: touch;
+        margin-bottom: 20px;
     }
 
     .card {
-        flex: 0 0 160px;
-        scroll-snap-align: start;
-        padding: 12px;
+        padding: 16px 14px;
     }
 
     .chart-section {
@@ -537,5 +547,35 @@ body {
 
     .chart-container {
         height: 320px;
+    }
+}
+
+@media (max-width: 480px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 80vh;
+    }
+
+    .header-controls {
+        gap: 8px;
+    }
+
+    .date-picker-container {
+        width: min(58vw, 220px);
+        min-width: 0;
+    }
+
+    .view-toggle {
+        width: auto;
+        flex-shrink: 0;
+    }
+
+    .toggle-btn {
+        padding: 10px 8px;
     }
 }

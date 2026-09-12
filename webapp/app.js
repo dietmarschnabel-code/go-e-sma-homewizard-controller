@@ -57,6 +57,16 @@ function setMetric(metricId, value, unit, forecastValue = null, decimals = 1) {
     }
 }
 
+function formatYieldMetric(totalYield, totalPvGenerationKwh, compactMode = false) {
+    if (!Number.isFinite(totalYield)) return '0.00 €';
+    const avgPricePerKwh = totalPvGenerationKwh > 0 ? totalYield / totalPvGenerationKwh : 0;
+    const priceText = `${avgPricePerKwh.toFixed(2)} €/kWh`;
+    if (compactMode) {
+        return `${totalYield.toFixed(2)} €`;
+    }
+    return `${totalYield.toFixed(2)} € • ${priceText}`;
+}
+
 function getElapsedDayFraction(now = new Date()) {
     const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
     return Math.max(1 / 24, Math.min(1, seconds / 86400));
@@ -337,7 +347,8 @@ async function renderDailyView() {
     if (canViewYield) {
         const yieldMetricEl = document.getElementById('yield-metric');
         const yieldSubtextEl = document.getElementById('yield-subtext');
-        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        const compactMode = window.matchMedia('(max-width: 768px) and (orientation: landscape)').matches;
+        if (yieldMetricEl) yieldMetricEl.textContent = formatYieldMetric(totalYield, dailyPVTotal, compactMode);
         if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${feedInCompensation.toFixed(2)} €`;
     }
 
@@ -481,7 +492,8 @@ async function renderMonthlyView() {
     if (canViewYield) {
         const yieldMetricEl = document.getElementById('yield-metric');
         const yieldSubtextEl = document.getElementById('yield-subtext');
-        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        const compactMode = window.matchMedia('(max-width: 768px) and (orientation: landscape)').matches;
+        if (yieldMetricEl) yieldMetricEl.textContent = formatYieldMetric(totalYield, totalPV, compactMode);
         if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
     }
 
@@ -581,7 +593,8 @@ async function renderYearlyView() {
     if (canViewYield) {
         const yieldMetricEl = document.getElementById('yield-metric');
         const yieldSubtextEl = document.getElementById('yield-subtext');
-        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        const compactMode = window.matchMedia('(max-width: 768px) and (orientation: landscape)').matches;
+        if (yieldMetricEl) yieldMetricEl.textContent = formatYieldMetric(totalYield, totalPV, compactMode);
         if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
     }
 
@@ -692,7 +705,8 @@ async function renderTotalView() {
     if (canViewYield) {
         const yieldMetricEl = document.getElementById('yield-metric');
         const yieldSubtextEl = document.getElementById('yield-subtext');
-        if (yieldMetricEl) yieldMetricEl.textContent = `${totalYield.toFixed(2)} €`;
+        const compactMode = window.matchMedia('(max-width: 768px) and (orientation: landscape)').matches;
+        if (yieldMetricEl) yieldMetricEl.textContent = formatYieldMetric(totalYield, totalPV, compactMode);
         if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
     }
 
