@@ -2,6 +2,46 @@
    Solar Energy Dashboard - Main Application Logic (app.js)
    ========================================================================== */
 
+// Timezone Configuration: Defaults to 'Europe/Vienna' in localStorage if not previously set
+if (!localStorage.getItem('app_timezone')) {
+    localStorage.setItem('app_timezone', 'Europe/Vienna');
+}
+
+const CONFIG_TIMEZONE = localStorage.getItem('app_timezone') || 'Europe/Vienna';
+
+function getAppTimeZone() {
+    if (CONFIG_TIMEZONE && CONFIG_TIMEZONE !== 'auto') {
+        return CONFIG_TIMEZONE;
+    }
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Vienna';
+}
+
+function getTimeZoneParts(date = getServerNow(), timeZone = getAppTimeZone()) {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+
+    const parts = Object.fromEntries(
+        formatter.formatToParts(date).map(p => [p.type, p.value])
+    );
+
+    return {
+        year: parseInt(parts.year, 10),
+        month: parseInt(parts.month, 10),
+        day: parseInt(parts.day, 10),
+        hour: parseInt(parts.hour, 10),
+        minute: parseInt(parts.minute, 10),
+        second: parseInt(parts.second, 10)
+    };
+}
+
 let currentView = 'daily';
 let chartInstance = null;
 let statusClockInterval = null;
@@ -75,17 +115,19 @@ function formatYieldMetric(totalYield, totalPvGenerationKwh, compactMode = false
 }
 
 function getElapsedDayFraction(now = getServerNow()) {
-    const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const tzParts = getTimeZoneParts(now);
+    const seconds = tzParts.hour * 3600 + tzParts.minute * 60 + tzParts.second;
     return Math.max(1 / 24, Math.min(1, seconds / 86400));
 }
 
 function getPeriodProgress(period, date = getServerNow()) {
     if (period === 'day') return getElapsedDayFraction(date);
 
-    const start = new Date(date.getFullYear(), period === 'month' ? date.getMonth() : 0, 1);
+    const tzParts = getTimeZoneParts(date);
+    const start = new Date(tzParts.year, period === 'month' ? tzParts.month - 1 : 0, 1);
     const end = period === 'month'
-        ? new Date(date.getFullYear(), date.getMonth() + 1, 1)
-        : new Date(date.getFullYear() + 1, 0, 1);
+        ? new Date(tzParts.year, tzParts.month, 1)
+        : new Date(tzParts.year + 1, 0, 1);
     const elapsed = Math.max(0, date - start);
     const duration = end - start;
     return Math.max(1 / (duration / 86400000), Math.min(1, elapsed / duration));
@@ -97,14 +139,15 @@ function forecastValue(value, period, date = getServerNow()) {
 }
 
 function typicalPVForecast(period, date, distributions) {
-    const monthlyKWh = distributions.yearly[date.getMonth() + 1];
+    const tzParts = getTimeZoneParts(date);
+    const monthlyKWh = distributions.yearly[tzParts.month];
     if (!Number.isFinite(monthlyKWh)) return null;
     if (period === 'month') return monthlyKWh;
     if (period === 'year') {
         return Object.values(distributions.yearly).reduce((sum, value) => sum + value, 0);
     }
     if (period === 'day') {
-        return monthlyKWh / new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+        return monthlyKWh / new Date(tzParts.year, tzParts.month, 0).getDate();
     }
     return null;
 }
@@ -129,8 +172,9 @@ function interpolatedPVPower(date, time, distributions) {
 }
 
 function getRemainingDailyPVShare(date, distributions) {
-    const currentHour = date.getHours();
-    const hourFractionRemaining = 1 - (date.getMinutes() * 60 + date.getSeconds()) / 3600;
+    const tzParts = getTimeZoneParts(date);
+    const currentHour = tzParts.hour;
+    const hourFractionRemaining = 1 - (tzParts.minute * 60 + tzParts.second) / 3600;
     return Object.entries(distributions.daily).reduce((sum, [hour, share]) => {
         const hourNumber = parseInt(hour, 10);
         if (hourNumber > currentHour) return sum + share;
@@ -142,6 +186,7 @@ function getRemainingDailyPVShare(date, distributions) {
 function correctedPVForecast(actualValue, period, date, distributions) {
     if (!Number.isFinite(actualValue)) return null;
 
+    const tzParts = getTimeZoneParts(date);
     const typicalDaily = typicalPVForecast('day', date, distributions);
     if (!Number.isFinite(typicalDaily)) return null;
 
@@ -151,19 +196,19 @@ function correctedPVForecast(actualValue, period, date, distributions) {
     }
 
     if (period === 'month') {
-        const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-        const remainingDays = daysInMonth - date.getDate();
+        const daysInMonth = new Date(tzParts.year, tzParts.month, 0).getDate();
+        const remainingDays = daysInMonth - tzParts.day;
         const remainingToday = typicalDaily * getRemainingDailyPVShare(date, distributions);
         return actualValue + remainingToday + typicalDaily * remainingDays;
     }
 
     if (period === 'year') {
-        const currentMonth = date.getMonth() + 1;
+        const currentMonth = tzParts.month;
         const currentMonthTypical = distributions.yearly[currentMonth];
         if (!Number.isFinite(currentMonthTypical)) return null;
 
-        const daysInMonth = new Date(date.getFullYear(), currentMonth, 0).getDate();
-        const elapsedDays = date.getDate() - 1;
+        const daysInMonth = new Date(tzParts.year, currentMonth, 0).getDate();
+        const elapsedDays = tzParts.day - 1;
         const remainingCurrentMonth = currentMonthTypical * (
             (daysInMonth - elapsedDays - 1) / daysInMonth
         ) + typicalDaily * getRemainingDailyPVShare(date, distributions);
@@ -180,7 +225,8 @@ function initYearSelector() {
     const yearSelect = document.getElementById('year-select');
     if (!yearSelect) return;
     
-    const currentYear = getServerNow().getFullYear();
+    const tzParts = getTimeZoneParts(getServerNow());
+    const currentYear = tzParts.year;
     yearSelect.innerHTML = '';
     
     for (let y = currentYear; y >= 2011; y--) {
@@ -324,9 +370,10 @@ async function renderDailyView() {
 
     const dailyPVTotal = pvMonthly[day] || 0;
     const now = getServerNow();
-    const isToday = selectedDate.getFullYear() === now.getFullYear()
-        && selectedDate.getMonth() === now.getMonth()
-        && selectedDate.getDate() === now.getDate();
+    const nowParts = getTimeZoneParts(now);
+    const isToday = selectedDate.getFullYear() === nowParts.year
+        && (selectedDate.getMonth() + 1) === nowParts.month
+        && selectedDate.getDate() === nowParts.day;
 
     const latestP1 = p1Data.length > 0 ? p1Data[p1Data.length - 1] : null;
     const firstP1 = p1Data.length > 0 ? p1Data[0] : null;
@@ -505,7 +552,9 @@ async function renderMonthlyView() {
     }
 
     const now = getServerNow();
-    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+    const nowParts = getTimeZoneParts(now);
+    const isCurrentMonth = year === nowParts.year && month === nowParts.month;
+
     setMetric('pv-metric', totalPV, 'kWh', isCurrentMonth ? correctedPVForecast(totalPV, 'month', now, distributions) : null);
     setMetric('import-metric', totalImport, 'kWh', isCurrentMonth ? forecastValue(totalImport, 'month', now) : null);
     setMetric('export-metric', totalExport, 'kWh', isCurrentMonth ? forecastValue(totalExport, 'month', now) : null);
@@ -606,7 +655,9 @@ async function renderYearlyView() {
     }
 
     const now = getServerNow();
-    const isCurrentYear = year === now.getFullYear();
+    const nowParts = getTimeZoneParts(now);
+    const isCurrentYear = year === nowParts.year;
+
     setMetric('pv-metric', totalPV, 'kWh', isCurrentYear ? correctedPVForecast(totalPV, 'year', now, distributions) : null, 0);
     setMetric('import-metric', totalImport, 'kWh', isCurrentYear ? forecastValue(totalImport, 'year', now) : null, 0);
     setMetric('export-metric', totalExport, 'kWh', isCurrentYear ? forecastValue(totalExport, 'year', now) : null, 0);
@@ -632,7 +683,7 @@ async function renderYearlyView() {
 
 // --- TOTAL VIEW ---
 async function renderTotalView() {
-    const currentYear = getServerNow().getFullYear();
+    const currentYear = getTimeZoneParts(getServerNow()).year;
     const startYear = SYSTEM_START_DATE.getFullYear();
     const years = [];
     
@@ -834,7 +885,14 @@ function startStatusClock() {
     
     const updateTime = () => {
         const now = getServerNow();
-        clockEl.textContent = now.toLocaleTimeString();
+        const appTimeZone = getAppTimeZone();
+        
+        clockEl.textContent = now.toLocaleTimeString('de-AT', {
+            timeZone: appTimeZone,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
     };
     updateTime();
     
@@ -847,22 +905,17 @@ function getMinutesSinceLastRecord(records, serverTime) {
 
     const lastRecord = records[records.length - 1];
     const timeStr = lastRecord.timeOnly;
-
     if (!timeStr || !timeStr.includes(':')) return Infinity;
 
     const [hours, minutes] = timeStr.split(':').map(Number);
     const now = serverTime ? new Date(serverTime) : getServerNow();
 
-    const recordTime = new Date(
-        now.getFullYear(), 
-        now.getMonth(), 
-        now.getDate(), 
-        hours, 
-        minutes, 
-        0
-    );
+    const tzParts = getTimeZoneParts(now, getAppTimeZone());
 
-    const diffMs = now.getTime() - recordTime.getTime();
+    const recordTime = new Date(Date.UTC(tzParts.year, tzParts.month - 1, tzParts.day, hours, minutes, 0));
+    const nowTime = new Date(Date.UTC(tzParts.year, tzParts.month - 1, tzParts.day, tzParts.hour, tzParts.minute, tzParts.second));
+
+    const diffMs = nowTime.getTime() - recordTime.getTime();
     const diffMins = diffMs / (1000 * 60);
 
     return diffMins < 0 ? 0 : diffMins;
@@ -973,9 +1026,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const yearPicker = document.getElementById('year-select');
 
     const now = getServerNow();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
+    const tzParts = getTimeZoneParts(now);
+
+    const yyyy = tzParts.year;
+    const mm = String(tzParts.month).padStart(2, '0');
+    const dd = String(tzParts.day).padStart(2, '0');
 
     if (datePicker) datePicker.value = `${yyyy}-${mm}-${dd}`;
     if (monthPicker) monthPicker.value = `${yyyy}-${mm}`;
