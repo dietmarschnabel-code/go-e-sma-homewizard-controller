@@ -7,6 +7,9 @@ let chartInstance = null;
 let statusClockInterval = null;
 let canViewYield = false;
 
+// Server Time Offset Tracking (in milliseconds)
+let serverTimeOffsetMs = 0;
+
 const SYSTEM_START_DATE = new Date(2011, 8, 27); 
 
 // Status LED Timeout Thresholds (in minutes)
@@ -17,6 +20,10 @@ const DEFAULT_LED_YELLOW_MINS = 6;
 
 function translate(key) {
     return (typeof t === 'function') ? t(key) : key;
+}
+
+function getServerNow() {
+    return new Date(Date.now() + serverTimeOffsetMs);
 }
 
 async function initializeYieldAccess() {
@@ -36,7 +43,7 @@ async function initializeYieldAccess() {
 }
 
 function parseLocalDate(dateString) {
-    if (!dateString) return new Date();
+    if (!dateString) return getServerNow();
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
 }
@@ -67,12 +74,12 @@ function formatYieldMetric(totalYield, totalPvGenerationKwh, compactMode = false
     return `${totalYield.toFixed(2)} € • ${priceText}`;
 }
 
-function getElapsedDayFraction(now = new Date()) {
+function getElapsedDayFraction(now = getServerNow()) {
     const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
     return Math.max(1 / 24, Math.min(1, seconds / 86400));
 }
 
-function getPeriodProgress(period, date = new Date()) {
+function getPeriodProgress(period, date = getServerNow()) {
     if (period === 'day') return getElapsedDayFraction(date);
 
     const start = new Date(date.getFullYear(), period === 'month' ? date.getMonth() : 0, 1);
@@ -84,7 +91,7 @@ function getPeriodProgress(period, date = new Date()) {
     return Math.max(1 / (duration / 86400000), Math.min(1, elapsed / duration));
 }
 
-function forecastValue(value, period, date = new Date()) {
+function forecastValue(value, period, date = getServerNow()) {
     const progress = getPeriodProgress(period, date);
     return value > 0 ? value / progress : null;
 }
@@ -173,7 +180,7 @@ function initYearSelector() {
     const yearSelect = document.getElementById('year-select');
     if (!yearSelect) return;
     
-    const currentYear = new Date().getFullYear();
+    const currentYear = getServerNow().getFullYear();
     yearSelect.innerHTML = '';
     
     for (let y = currentYear; y >= 2011; y--) {
@@ -316,7 +323,7 @@ async function renderDailyView() {
     if (chargerTitleEl) chargerTitleEl.textContent = translate('chargerToday');
 
     const dailyPVTotal = pvMonthly[day] || 0;
-    const now = new Date();
+    const now = getServerNow();
     const isToday = selectedDate.getFullYear() === now.getFullYear()
         && selectedDate.getMonth() === now.getMonth()
         && selectedDate.getDate() === now.getDate();
@@ -497,7 +504,7 @@ async function renderMonthlyView() {
         if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
     }
 
-    const now = new Date();
+    const now = getServerNow();
     const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
     setMetric('pv-metric', totalPV, 'kWh', isCurrentMonth ? correctedPVForecast(totalPV, 'month', now, distributions) : null);
     setMetric('import-metric', totalImport, 'kWh', isCurrentMonth ? forecastValue(totalImport, 'month', now) : null);
@@ -598,7 +605,7 @@ async function renderYearlyView() {
         if (yieldSubtextEl) yieldSubtextEl.textContent = `${translate('exportSubtext')} ${totalFeedInCompensation.toFixed(2)} €`;
     }
 
-    const now = new Date();
+    const now = getServerNow();
     const isCurrentYear = year === now.getFullYear();
     setMetric('pv-metric', totalPV, 'kWh', isCurrentYear ? correctedPVForecast(totalPV, 'year', now, distributions) : null, 0);
     setMetric('import-metric', totalImport, 'kWh', isCurrentYear ? forecastValue(totalImport, 'year', now) : null, 0);
@@ -625,7 +632,7 @@ async function renderYearlyView() {
 
 // --- TOTAL VIEW ---
 async function renderTotalView() {
-    const currentYear = new Date().getFullYear();
+    const currentYear = getServerNow().getFullYear();
     const startYear = SYSTEM_START_DATE.getFullYear();
     const years = [];
     
@@ -826,7 +833,7 @@ function startStatusClock() {
     if (!clockEl) return;
     
     const updateTime = () => {
-        const now = new Date();
+        const now = getServerNow();
         clockEl.textContent = now.toLocaleTimeString();
     };
     updateTime();
@@ -844,7 +851,7 @@ function getMinutesSinceLastRecord(records, serverTime) {
     if (!timeStr || !timeStr.includes(':')) return Infinity;
 
     const [hours, minutes] = timeStr.split(':').map(Number);
-    const now = serverTime ? new Date(serverTime) : new Date();
+    const now = serverTime ? new Date(serverTime) : getServerNow();
 
     const recordTime = new Date(
         now.getFullYear(), 
@@ -870,11 +877,6 @@ function getSingleLedStatus(ageMins, redThreshold = DEFAULT_LED_RED_MINS, yellow
 async function updateSystemStatusData() {
     let serverTime = null;
 
-    const [p1Data, pvData] = await Promise.all([
-        fetchP1DailyData(new Date()),
-        fetchPVDailyData(new Date())
-    ]);
-
     // Retrieve system server time via HEAD request with a strict 2-second timeout guard
     try {
         const controller = new AbortController();
@@ -890,11 +892,19 @@ async function updateSystemStatusData() {
         const serverDateHeader = response.headers.get('date');
         if (serverDateHeader) {
             serverTime = new Date(serverDateHeader);
+            serverTimeOffsetMs = serverTime.getTime() - Date.now();
         }
     } catch (e) {
         console.warn('Server time fetch bypassed or timed out, using local clock', e);
-        serverTime = new Date();
+        serverTime = getServerNow();
     }
+
+    const now = serverTime || getServerNow();
+
+    const [p1Data, pvData] = await Promise.all([
+        fetchP1DailyData(now),
+        fetchPVDailyData(now)
+    ]);
 
     // 1. Photovoltaic Line
     const latestPV = pvData.length > 0 ? pvData[pvData.length - 1] : null;
@@ -903,7 +913,7 @@ async function updateSystemStatusData() {
 
     if (latestPV && latestPV.timeOnly) {
         if (pvTimeEl) pvTimeEl.textContent = latestPV.timeOnly;
-        const pvAge = getMinutesSinceLastRecord(pvData, serverTime);
+        const pvAge = getMinutesSinceLastRecord(pvData, now);
         if (pvLedEl) pvLedEl.className = `status-led ${getSingleLedStatus(pvAge, PV_LED_RED_MINS, PV_LED_YELLOW_MINS)}`;
     } else {
         if (pvTimeEl) pvTimeEl.textContent = '--:--';
@@ -917,7 +927,7 @@ async function updateSystemStatusData() {
 
     if (latestP1 && latestP1.timeOnly) {
         if (p1TimeEl) p1TimeEl.textContent = latestP1.timeOnly;
-        const p1Age = getMinutesSinceLastRecord(p1Data, serverTime);
+        const p1Age = getMinutesSinceLastRecord(p1Data, now);
         if (p1LedEl) p1LedEl.className = `status-led ${getSingleLedStatus(p1Age)}`;
     } else {
         if (p1TimeEl) p1TimeEl.textContent = '--:--';
@@ -925,7 +935,6 @@ async function updateSystemStatusData() {
     }
 
     // 3. Totals & System Days Counter
-    const now = serverTime || new Date();
     const diffTime = Math.abs(now - SYSTEM_START_DATE);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
@@ -953,6 +962,9 @@ async function updateSystemStatusData() {
 // Initialization & Event Binding
 document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
+    
+    // Sync initial server time before setting datepickers & clock
+    await updateSystemStatusData();
     initYearSelector();
     startStatusClock();
 
@@ -960,7 +972,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const monthPicker = document.getElementById('month-select');
     const yearPicker = document.getElementById('year-select');
 
-    const now = new Date();
+    const now = getServerNow();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
