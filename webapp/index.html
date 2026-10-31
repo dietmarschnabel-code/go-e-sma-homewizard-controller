@@ -50,6 +50,7 @@
                     <button id="btn-monthly" class="toggle-btn" onclick="switchView('monthly')" data-i18n="monthly">Monthly</button>
                     <button id="btn-yearly" class="toggle-btn" onclick="switchView('yearly')" data-i18n="yearly">Yearly</button>
                     <button id="btn-total" class="toggle-btn" onclick="switchView('total')" data-i18n="total">Total</button>
+                    <button id="btn-weather" class="toggle-btn" onclick="toggleWeather()" data-i18n="weatherBtn">Weather</button>
                     <button id="btn-status" class="toggle-btn" onclick="toggleStatusModal()" data-i18n="systemStatusBtn">ℹ️ Status</button>
                 </div>
             </div>
@@ -92,6 +93,18 @@
                 <p id="charger-metric" class="metric-value">0.0 kWh</p>
                 <p id="charger-forecast" class="forecast-value hidden"></p>
             </div>
+        </div>
+
+        <!-- Weather Forecast (toggle via header button) -->
+        <div id="weather-section" class="card weather-section hidden">
+            <div class="weather-header">
+                <h3 data-i18n="weatherTitle">Weather forecast</h3>
+                <button class="weather-refresh" onclick="refreshWeather(true)" aria-label="Refresh">&#8635;</button>
+            </div>
+            <div id="weather-body" class="weather-body">
+                <p class="status-text" data-i18n="loading">Loading...</p>
+            </div>
+            <p class="weather-credit"><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather data by Open-Meteo.com</a></p>
         </div>
 
         <!-- Chart Section -->
@@ -177,6 +190,7 @@
     
     <!-- App Logic -->
     <script src="app.js"></script>
+    <script src="weather.js"></script>
     
     <!-- Authenticated Service Worker Registration -->
     <script>

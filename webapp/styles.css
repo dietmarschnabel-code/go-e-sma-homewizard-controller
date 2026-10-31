@@ -579,3 +579,206 @@ body {
         padding: 10px 8px;
     }
 }
+
+/* =========================================
+   Weather Forecast Panel (toggleable)
+   ========================================= */
+.toggle-btn.wx-on {
+    color: var(--text-main);
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.weather-section {
+    margin-bottom: 24px;
+    padding: 14px 18px;
+    gap: 10px;
+}
+
+.weather-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.weather-header h3 {
+    margin-bottom: 0;
+}
+
+.weather-refresh {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.weather-refresh:hover {
+    color: var(--text-main);
+}
+
+.weather-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.weather-top {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    min-width: 0;
+}
+
+.wx-now {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto;
+    padding-right: 20px;
+    border-right: 1px solid var(--border-color);
+}
+
+.wx-now-icon {
+    font-size: 2.6rem;
+    line-height: 1;
+}
+
+.wx-now-temp {
+    font-size: 1.8rem;
+    font-weight: bold;
+    line-height: 1.1;
+}
+
+.wx-now-desc {
+    color: var(--text-main);
+    font-size: 0.85rem;
+}
+
+.wx-now-meta {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    margin-top: 2px;
+}
+
+.wx-hours {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+
+.wx-hour,
+.wx-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.wx-hour {
+    flex: 0 0 auto;
+    width: 54px;
+    padding: 4px 0;
+}
+
+.wx-time {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.wx-ico {
+    font-size: 1.3rem;
+    line-height: 1.2;
+}
+
+.wx-min {
+    color: var(--text-muted);
+}
+
+.wx-rain {
+    color: var(--accent);
+    font-size: 0.68rem;
+    min-height: 1em;
+}
+
+.wx-sun {
+    color: var(--pv-orange);
+    font-size: 0.68rem;
+}
+
+.wx-days {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(64px, 1fr);
+    gap: 8px;
+    overflow-x: auto;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+}
+
+.weather-credit {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.weather-credit a {
+    color: inherit;
+}
+
+@media (max-width: 768px) {
+    .weather-section {
+        padding: 12px;
+        margin-bottom: 20px;
+    }
+
+    .weather-top {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .wx-now {
+        padding-right: 0;
+        padding-bottom: 10px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+}
+
+
+/* =========================================
+   Compact header menu (6 buttons) on narrow screens
+   ========================================= */
+@media (max-width: 768px) {
+    .view-toggle {
+        gap: 2px;
+        padding: 3px;
+    }
+
+    .view-toggle .toggle-btn {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 12px 4px;
+        /* scales with screen width: ~11px on 360px phones, ~12px on 390px */
+        font-size: clamp(0.62rem, 3.1vw, 0.85rem);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        letter-spacing: -0.2px;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 360px) {
+    .view-toggle .toggle-btn {
+        padding: 12px 2px;
+        letter-spacing: -0.3px;
+    }
+}

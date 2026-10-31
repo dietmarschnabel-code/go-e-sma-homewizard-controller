@@ -4,7 +4,9 @@
 RewriteEngine On
 
 Session On
-SessionCookieName solar_session path=/webapp/; Secret=YourSecretKeyHereChangeMe
+SessionCookieName solar_auth path=/;httponly;secure
+# Omit this line if SessionCryptoPassphrase is set in the virtual host.
+SessionCryptoPassphrase replace-with-a-long-random-value
 SessionMaxAge 604800
 
 # ----------------------------------------------------------------------
