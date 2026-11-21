@@ -69,7 +69,7 @@ print_success "go found"
 
 # Verify Go source
 print_header "Validating Go Source"
-if go vet go-e-sma-homewizard-controller.go nighttime_basic.go; then
+if go vet .; then
     print_success "Go source is valid"
 else
     print_error "Go source validation failed"
@@ -83,6 +83,9 @@ REQUIRED_FILES=(
     "${PACKAGE_NAME}.go"
     "nighttime_basic.go"
     "nighttime_solar.go"
+    "charger_modbus.go"
+    "go.mod"
+    "go.sum"
     "Makefile"
     "${PACKAGE_NAME}.conf"
     "debian/systemd/${PACKAGE_NAME}.service"
@@ -115,8 +118,9 @@ SOURCE_DIR="${BUILD_DIR}/SOURCES/${PACKAGE_NAME}-${VERSION}"
 mkdir -p "$SOURCE_DIR"
 
 # Copy files to source directory
-cp "${PACKAGE_NAME}.go" "$SOURCE_DIR/"
+cp "${PACKAGE_NAME}.go" charger_modbus.go "$SOURCE_DIR/"
 cp nighttime_basic.go nighttime_solar.go Makefile "$SOURCE_DIR/"
+cp go.mod go.sum "$SOURCE_DIR/"
 cp "${PACKAGE_NAME}.conf" "$SOURCE_DIR/"
 cp -r debian/ "$SOURCE_DIR/"
 cp README.md "$SOURCE_DIR/"

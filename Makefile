@@ -34,7 +34,7 @@ check-deps:
 
 executable: check-deps
 	@echo "Building $(BINARY)..."
-	@$(GO) build -o $(BINARY) $(GO_SOURCES)
+	@$(GO) build -o $(BINARY) .
 	@echo "✓ Executable built: $(BINARY)"
 
 build: executable

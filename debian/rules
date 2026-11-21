@@ -7,10 +7,10 @@ export DH_VERBOSE = 1
 	dh $@
 
 override_dh_auto_build:
-	go build -o go-e-sma-homewizard-controller go-e-sma-homewizard-controller.go nighttime_basic.go
+	go build -o go-e-sma-homewizard-controller .
 
 override_dh_auto_test:
-	go vet go-e-sma-homewizard-controller.go nighttime_basic.go
+	go vet .
 
 override_dh_dwz:
 	# Go binaries contain compressed DWARF sections unsupported by dwz.

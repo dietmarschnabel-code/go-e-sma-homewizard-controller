@@ -22,7 +22,7 @@ Features:
 %setup -q
 
 %build
-go build -o %{name} go-e-sma-homewizard-controller.go nighttime_basic.go
+go build -o %{name} .
 
 %install
 # Create directories

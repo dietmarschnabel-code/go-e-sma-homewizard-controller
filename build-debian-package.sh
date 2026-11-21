@@ -77,7 +77,7 @@ check_dependencies() {
 validate_go() {
     print_header "Validating Go Source"
 
-    if (cd "$SCRIPT_DIR" && go vet go-e-sma-homewizard-controller.go nighttime_basic.go); then
+    if (cd "$SCRIPT_DIR" && go vet .); then
         print_success "Go source is valid"
     else
         print_error "Go source validation failed"

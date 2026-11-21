@@ -56,6 +56,8 @@ const (
 // Config holds the execution parameters
 type Config struct {
 	ChargerIP          string
+	ChargerPort        int
+	ChargerUnit        int
 	P1IP               string
 	P1CSVPath          string
 	PVDataDir          string
@@ -75,13 +77,15 @@ var (
 	httpClient  = &http.Client{Timeout: CurlTimeout}
 )
 
-// ChargerStatus maps the go-eCharger API response
+// ChargerStatus is the charger snapshot used by load management and CSV logging.
+// Amp, Psm, PowerW, and EnergyWh come from Modbus. Lmo still comes from HTTP,
+// because the published Modbus map has no logic-mode register.
 type ChargerStatus struct {
-	Lmo *int      `json:"lmo"`
-	Amp *int      `json:"amp"`
-	Psm *int      `json:"psm"` // Phase switch mode: 0=auto/3-phase, 1=1-phase
-	Nrg []float64 `json:"nrg"`
-	Eto *float64  `json:"eto"` // Total energy charged in Wh
+	Lmo      *int
+	Amp      *int
+	Psm      *int // Phase switch mode: 0=auto/3-phase, 1=1-phase, 2=3-phase
+	PowerW   int
+	EnergyWh float64
 }
 
 // HomeWizardData maps the complete P1 meter API response
@@ -129,7 +133,9 @@ func initConfig() Config {
 	loadLinuxConfig()
 
 	c := Config{}
-	flag.StringVar(&c.ChargerIP, "charger", "192.168.1.50", "IP address of the go-eCharger")
+	flag.StringVar(&c.ChargerIP, "charger", "192.168.1.50", "IP address of the go-e charger (Gemini, CORE, or PRO)")
+	flag.IntVar(&c.ChargerPort, "charger-port", defaultChargerPort, "Modbus TCP port of the go-e charger")
+	flag.IntVar(&c.ChargerUnit, "charger-unit", defaultChargerUnit, "Modbus unit ID of the go-e charger")
 	flag.StringVar(&c.P1IP, "p1", "192.168.1.60", "IP address of the HomeWizard P1 Meter")
 	flag.StringVar(&c.P1CSVPath, "p1-csv", "p1_data.csv", "Base path to the output P1 CSV log file (leave empty to disable)")
 	flag.StringVar(&c.PVDataDir, "pv-dir", "pv", "Directory containing PV CSV files and distribution output files (leave empty to disable)")
@@ -146,6 +152,16 @@ func initConfig() Config {
 
 	if env := os.Getenv("CHARGER_IP"); env != "" {
 		c.ChargerIP = env
+	}
+	if env := os.Getenv("CHARGER_PORT"); env != "" {
+		if val, err := strconv.Atoi(env); err == nil {
+			c.ChargerPort = val
+		}
+	}
+	if env := os.Getenv("CHARGER_UNIT_ID"); env != "" {
+		if val, err := strconv.Atoi(env); err == nil {
+			c.ChargerUnit = val
+		}
 	}
 	if env := os.Getenv("P1_IP"); env != "" {
 		c.P1IP = env
@@ -423,12 +439,8 @@ func logP1ToCSV(cfg Config) {
 	var chargerTotalKWh float64
 
 	if status, err := readChargerStatus(cfg); err == nil {
-		if len(status.Nrg) > 11 {
-			chargerPowerW = int(status.Nrg[11])
-		}
-		if status.Eto != nil {
-			chargerTotalKWh = *status.Eto / 1000.0
-		}
+		chargerPowerW = status.PowerW
+		chargerTotalKWh = status.EnergyWh / 1000.0
 	} else {
 		debugLog(cfg, "[P1 CSV] Failed to query charger status: %v", err)
 	}
@@ -485,41 +497,41 @@ func startP1CSVLogger(cfg Config, stopChan <-chan struct{}) {
 }
 
 func readChargerStatus(cfg Config) (ChargerStatus, error) {
-	var status ChargerStatus
-	resp, err := httpClient.Get(fmt.Sprintf("http://%s/api/status?filter=lmo,amp,psm,nrg,eto", cfg.ChargerIP))
+	status, err := readChargerModbus(cfg)
 	if err != nil {
 		return status, err
 	}
-	defer resp.Body.Close()
-
-	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
-		return status, err
+	lmo, err := readLogicMode(cfg)
+	if err != nil {
+		debugLog(cfg, "Logic mode unavailable over HTTP, load management assumes non-PV mode: %v", err)
+		return status, nil
 	}
+	status.Lmo = &lmo
 	return status, nil
 }
 
-func setChargerAmperage(cfg Config, amperage int) error {
-	url := fmt.Sprintf("http://%s/api/set?amp=%d", cfg.ChargerIP, amperage)
-	resp, err := httpClient.Get(url)
+// readLogicMode reads HTTP key lmo. The published Modbus map has no register for it.
+func readLogicMode(cfg Config) (int, error) {
+	resp, err := httpClient.Get(fmt.Sprintf("http://%s/api/status?filter=lmo", cfg.ChargerIP))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
-	debugLog(cfg, "Set charger amperage to %dA", amperage)
-	return nil
-}
 
-func setChargerPhaseMode(cfg Config, phaseMode int) error {
-	url := fmt.Sprintf("http://%s/api/set?psm=%d", cfg.ChargerIP, phaseMode)
-	resp, err := httpClient.Get(url)
-	if err != nil {
-		return err
+	var body struct {
+		Lmo *int `json:"lmo"`
 	}
-	defer resp.Body.Close()
-	debugLog(cfg, "Set charger phase mode to psm=%d", phaseMode)
-	return nil
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return 0, err
+	}
+	if body.Lmo == nil {
+		return 0, fmt.Errorf("logic mode missing")
+	}
+	return *body.Lmo, nil
 }
 
+// sendPVData writes grid and PV power. go-e publishes no Modbus registers for
+// pGrid, pPv, or pAkku, so this stays on the local HTTP API.
 func sendPVData(cfg Config, housePower, pvPower int) error {
 	v := url.Values{}
 	v.Add("ids", fmt.Sprintf(`{"pGrid":%d,"pPv":%d,"pAkku":0}`, housePower, pvPower))
@@ -554,10 +566,7 @@ func runLoadManagement(cfg Config, targetLimitWatts, wattPerAmp int) {
 	if status.Psm != nil {
 		chargerPsm = *status.Psm
 	}
-	chargerPower := 0
-	if len(status.Nrg) > 11 {
-		chargerPower = int(status.Nrg[11])
-	}
+	chargerPower := status.PowerW
 
 	if chargerMode != PVMode || chargerPower > 4400 {
 		// Restore automatic phase switching (allow 3-phase) only if phase mode control is explicitly enabled (!= -1)
@@ -772,7 +781,8 @@ func main() {
 	wattPerAmp := Phases * Voltage
 
 	log.Println("[INFO] Starting Cross-Platform Controller...")
-	log.Printf("[INFO] Charger IP: %s | Meter IP: %s", cfg.ChargerIP, cfg.P1IP)
+	logChargerTransport(cfg)
+	log.Printf("[INFO] Meter IP: %s", cfg.P1IP)
 	log.Printf("[INFO] Power limit: %dW | Watt/Amp: %dW | PV Phase Mode: %d", targetLimitWatts, wattPerAmp, cfg.PVPhaseMode)
 	if cfg.SMALogPath == "" {
 		log.Println("[INFO] SMA Log parsing is DISABLED")
@@ -795,6 +805,7 @@ func main() {
 		case <-sigChan:
 			log.Println("[INFO] Shutting down gracefully")
 			close(stopCSVChan)
+			closeChargerModbus()
 			return
 		case <-ticker.C:
 			if loopCounter%PVUpdateIntervalS == 0 {
