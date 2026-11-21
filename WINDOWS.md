@@ -4,44 +4,59 @@ This project also contains a Windows-friendly Go executable. The application is 
 
 ## Build the Windows executable
 
-From the project directory:
+From the project directory, on Windows x64:
 
 ```bat
-go mod init go-e-sma-homewizard-controller
-go build -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+go build -o go-e-sma-homewizard-controller.exe .
 ```
 
-To cross-compile from Linux or macOS:
+To cross-compile a Windows x64 executable from Linux or macOS:
 
 ```bash
-go mod init go-e-sma-homewizard-controller
 GOOS=windows GOARCH=amd64 go build -o go-e-sma-homewizard-controller.exe .
 ```
 
-## Optional sunset and sunrise calculation
+### Windows on ARM (virtual machine on Apple Silicon)
 
-You have to init utilization of this external functionality:
+A Windows guest on Apple Silicon (Parallels, VMware Fusion, or UTM) is Windows on ARM. An `amd64` executable is the wrong architecture for that guest.
+
+Cross-compile from the Mac or from Linux:
+
+```bash
+GOOS=windows GOARCH=arm64 go build -o go-e-sma-homewizard-controller.exe .
+```
+
+Or build inside the Windows ARM virtual machine. Go then targets the host architecture, so the plain build command is enough:
 
 ```bat
-go mod init go-e-sma-homewizard-controller
-go get [github.com/nathan-osman/go-sunrise](https://github.com/nathan-osman/go-sunrise)
+go build -o go-e-sma-homewizard-controller.exe .
+```
 
+Use an ARM64 build of NSSM if you install the program as a service in that guest. The `amd64` NSSM binary does not match a Windows ARM virtual machine.
+
+## Optional sunset and sunrise calculation
+
+The module already records the sunrise dependency. Build with the `solar` tag:
+
+```bat
 go build -tags solar -o go-e-sma-homewizard-controller.exe .
 ```
 
-or
+or, from Linux or macOS:
 
 ```bash
 GOOS=windows GOARCH=amd64 go build -tags solar -o go-e-sma-homewizard-controller.exe .
 ```
 
-can be used to include this calculation.
+For the Windows ARM guest on Apple Silicon, use `GOARCH=arm64` in that command.
 
 ## Command-line parameters
 
 The program supports these flags:
 
-- `-charger`: go-e charger IP, default `192.168.1.50`
+- `-charger`: go-e charger IP (Gemini, CORE, or PRO), default `192.168.1.50`
+- `-charger-port`: Modbus TCP port, default `502`
+- `-charger-unit`: Modbus unit ID, default `1`
 - `-p1`: HomeWizard P1 meter IP, default `192.168.1.60`
 - `-p1-csv`: Base path to the output P1 CSV log file, default `p1_data.csv` (leave empty to disable)
 - `-sma-log`: SMA log file path, default `C:\temp\sma-update.log` (if set empty the system will skip PV Data reading and still forward to the Charger.)
@@ -63,6 +78,8 @@ go-e-sma-homewizard-controller.exe -charger 192.168.1.50 -p1 192.168.1.60 -sma-l
 These environment variables are also read automatically if they are set:
 
 - `CHARGER_IP`
+- `CHARGER_PORT`
+- `CHARGER_UNIT_ID`
 - `P1_IP`
 - `P1_CSV_FILE`
 - `SMA_LOG_FILE`

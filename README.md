@@ -1,5 +1,7 @@
 # go-e-sma-homewizard-controller
-Platform independent solution to provide data for for a go-e-charger (GO-E-Charger Gemini in my case) with support for loadmanagment to avoid higher Austrian net charges for above 10KW house supprt and with a sample connection to a 15 years bluetooth connected sma inverter 
+Platform independent solution to provide data for a go-e charger with support for load management to avoid higher Austrian net charges for above 10 kW house power, and with a sample connection to a Bluetooth-connected SMA inverter.
+
+The controller talks to the charger over Modbus TCP. The same API v2 register map is used by the Gemini family (Gemini, Gemini flex, Gemini 2.0), the Charger CORE, and the Charger PRO. Current, phase mode, power, and charged energy use Modbus. Logic mode (`lmo`) and the PV surplus values (`pGrid`, `pPv`, `pAkku`) stay on the local HTTP API, because go-e does not publish Modbus registers for them. Modbus has to be enabled on the charger (`men=true` in the app, or `http://<charger>/api/set?men=true`). The default port is 502 and the unit ID is 1. 
 
 The script initially was quite simple and easy to understand - it has been modified with google ai search (which helped me to find the right statments easier.
 I used this script for a 1/2 Year already but as i was also now embedding new code to support load management and limmit power consumption of our house to 10 KW i thought it is time to release this code.
@@ -38,7 +40,13 @@ It includes:
 Example build command:
 
 ```bat
-go build -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+go build -o go-e-sma-homewizard-controller.exe .
+```
+
+On a Windows ARM virtual machine (Parallels, VMware, or UTM on Apple Silicon) build inside that VM with the same command. A Windows amd64 executable does not match that guest. To cross-compile the ARM build from macOS or Linux:
+
+```bash
+GOOS=windows GOARCH=arm64 go build -o go-e-sma-homewizard-controller.exe .
 ```
 
 Example startup command:
@@ -53,7 +61,9 @@ This project also contains a Windows-friendly Go implementation. The executable 
 
 ### Available command-line options
 
-- `-charger`: IP address of the go-e charger, default `192.168.1.50`
+- `-charger`: IP address of the go-e charger (Gemini, CORE, or PRO), default `192.168.1.50`
+- `-charger-port`: Modbus TCP port, default `502`
+- `-charger-unit`: Modbus unit ID, default `1`
 - `-p1`: IP address of the HomeWizard P1 meter, default `192.168.1.60`
 - `-sma-log`: path to the SMA log file, default `C:\temp\sma-update.log`
 - `-pv-dir`: directory containing PV CSV files and generated distribution files, default `pv`
@@ -72,6 +82,8 @@ go-e-sma-homewizard-controller.exe -charger 192.168.1.50 -p1 192.168.1.60 -sma-l
 The application also reads these environment variables if they are set:
 
 - `CHARGER_IP`
+- `CHARGER_PORT`
+- `CHARGER_UNIT_ID`
 - `P1_IP`
 - `SMA_LOG_FILE`
 - `PV_DATA_DIR`
@@ -94,14 +106,22 @@ go-e-sma-homewizard-controller.exe -debug
 From the project directory:
 
 ```bat
-go build -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+go build -o go-e-sma-homewizard-controller.exe .
 ```
 
 If you are building on Linux or macOS and want a Windows `.exe` file, use:
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -o go-e-sma-homewizard-controller.exe go-e-sma-homewizard-controller.go
+GOOS=windows GOARCH=amd64 go build -o go-e-sma-homewizard-controller.exe .
 ```
+
+For a Windows ARM virtual machine on Apple Silicon, use `GOARCH=arm64` instead of `amd64`:
+
+```bash
+GOOS=windows GOARCH=arm64 go build -o go-e-sma-homewizard-controller.exe .
+```
+
+Building inside that Windows ARM guest does not need the `GOOS` and `GOARCH` variables. `go build -o go-e-sma-homewizard-controller.exe .` produces the matching arm64 executable.
 
 ### Install and run as a Windows service
 

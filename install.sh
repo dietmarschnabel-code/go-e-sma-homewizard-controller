@@ -73,7 +73,7 @@ validate_script() {
         exit 1
     fi
 
-    if go build -o "$PACKAGE_NAME" "$GO_SOURCE" "$GO_NIGHTTIME_SOURCE"; then
+    if go build -o "$PACKAGE_NAME" .; then
         print_success "Go executable built"
     else
         print_error "Go build failed"
